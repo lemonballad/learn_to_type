@@ -2,7 +2,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Star Typer — Learn to Type!</title>
 <style>
-  :root { --bg1:#2a1a5e; --bg2:#0d2b53; }
   * { box-sizing: border-box; }
   html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#0d1030;
     font-family: 'Comic Sans MS','Baloo 2','Trebuchet MS',system-ui,sans-serif;
@@ -32,10 +31,12 @@
   .world .wtitle { font-weight:bold; font-size:18px; margin-top:6px; }
   .world .wdesc { font-size:13px; color:#555; margin-top:2px; }
   .world .lock { position:absolute; top:6px; right:10px; font-size:22px; }
-  .stars { color:#ffcf33; font-size:15px; margin-top:6px; min-height:18px; letter-spacing:1px; }
+  .best { color:#e08a00; font-weight:bold; font-size:14px; margin-top:6px; min-height:16px; }
   .topbar { position:fixed; top:0; left:0; right:0; height:58px; display:flex; align-items:center;
     justify-content:space-between; padding:0 14px; color:#fff; z-index:5; pointer-events:none; }
   .topbar .info { font-size:20px; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,.6); }
+  .topbar .right { display:flex; align-items:center; gap:14px; }
+  .topbar .score { font-size:20px; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,.6); }
   .topbar .hearts { font-size:24px; letter-spacing:2px; }
   .iconbtn { pointer-events:auto; cursor:pointer; background:rgba(255,255,255,.15); border:2px solid rgba(255,255,255,.5);
     color:#fff; width:44px; height:44px; border-radius:50%; font-size:22px; display:flex; align-items:center; justify-content:center; }
@@ -46,7 +47,6 @@
   input[type=range]{ width:100%; height:30px; }
   .big { font-size: clamp(30px,7vw,64px); margin:0 0 10px; color:#ffe14d; text-shadow:0 3px 0 #d98a00; }
   .parentnote { font-size:13px; color:#9fb6d8; margin-top:18px; max-width:460px; }
-  .hint { font-size:16px; color:#bfe3ff; margin-top:16px; }
   select { font-family:inherit; font-size:18px; padding:8px 12px; border-radius:12px; border:none; }
 </style>
 
@@ -56,7 +56,10 @@
 <div id="hud" class="topbar hidden">
   <div class="iconbtn" id="pauseBtn">⏸</div>
   <div class="info" id="levelInfo">World 1</div>
-  <div class="hearts" id="hearts">❤️❤️❤️</div>
+  <div class="right">
+    <div class="score" id="score">⭐ 0</div>
+    <div class="hearts" id="hearts">❤️❤️❤️</div>
+  </div>
 </div>
 
 <!-- Title / World select -->
@@ -69,15 +72,13 @@
   </div>
 </div>
 
-<!-- Level complete -->
-<div id="win" class="overlay hidden">
-  <div class="big" id="winTitle">Great job! 🎉</div>
-  <div class="stars" id="winStars" style="font-size:40px"></div>
-  <div class="sub" id="winMsg"></div>
+<!-- End of run (ran out of hearts) -->
+<div id="over" class="overlay hidden">
+  <div class="big" id="overTitle">Good try! 💪</div>
+  <div class="sub" id="overMsg"></div>
   <div class="row">
-    <button class="btn green" id="nextBtn">Next ▶</button>
-    <button class="btn blue" id="replayBtn">Play again</button>
-    <button class="btn" id="menuBtn">🏠 Home</button>
+    <button class="btn green" id="againBtn">▶ Play again</button>
+    <button class="btn" id="overHome">🏠 Home</button>
   </div>
 </div>
 
@@ -108,12 +109,14 @@
     <label>Progress</label>
     <div class="row" style="justify-content:flex-start">
       <button class="btn small" id="unlockAll">Unlock everything</button>
-      <button class="btn small" id="resetProg">Reset stars</button>
+      <button class="btn small" id="resetProg">Reset progress</button>
     </div>
     <div class="parentnote">
-      Tip: Worlds 1–4 (letters, numbers, capitals, symbols) are perfect for a new typer.
-      Capital letters accept the lowercase key too — no Shift needed. Words and Sentences
-      unlock as your reader grows. Progress is saved on this computer.
+      Levels rise on their own as your child zaps targets — it never stops to ask.
+      Capital letters and symbols accept the un‑shifted key (press <b>1</b> for <b>!</b>),
+      so no Shift needed. In the Numbers world the challenge grows from counting to
+      adding, taking away, times, and sharing — always small whole numbers, never negative.
+      Progress is saved on this computer.
     </div>
   </div>
   <button class="btn" id="parentBack">◀ Back</button>
@@ -156,47 +159,10 @@
     good(){ tone(660,0.09,'sine',0.2); setTimeout(()=>tone(990,0.12,'sine',0.2),90); },
     bonk(){ tone(160,0.14,'sawtooth',0.15,90); },
     hurt(){ tone(300,0.25,'sawtooth',0.2,110); },
-    win(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'triangle',0.22),i*120)); },
+    levelup(){ [523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,0.14,'triangle',0.22),i*90)); },
+    over(){ [440,349,262].forEach((f,i)=>setTimeout(()=>tone(f,0.2,'sine',0.2),i*140)); },
     lock(){ tone(740,0.06,'sine',0.14); }
   };
-
-  // ---------- Worlds ----------
-  function letters(str){ return str.split(''); }
-  const WORLDS = [
-    { id:'lower', emoji:'🔤', title:'Little Letters', desc:'a b c ...', mode:'char',
-      pool: letters('abcdefghijklmnopqrstuvwxyz') },
-    { id:'num', emoji:'🔢', title:'Numbers', desc:'0 1 2 ...', mode:'char',
-      pool: letters('0123456789') },
-    { id:'upper', emoji:'🅰️', title:'BIG Letters', desc:'A B C ...', mode:'char',
-      pool: letters('ABCDEFGHIJKLMNOPQRSTUVWXYZ') },
-    { id:'sym', emoji:'❓', title:'Symbols', desc:'. , ! ?', mode:'char',
-      pool: letters('.,!?;:\'-') },
-    { id:'words', emoji:'🐱', title:'Little Words', desc:'cat dog sun', mode:'word',
-      pool: 'cat dog sun hat run mom dad big red bug fox pig top hop map cup bed sit bat'.split(' ') },
-    { id:'sent', emoji:'📖', title:'Sentences', desc:'the cat ran', mode:'word',
-      pool: ['the cat ran','i see you','a big dog','we can go','it is fun','the sun is up','i like it','go go go'] }
-  ];
-  // 4 sub-levels per world with rising difficulty
-  const SUBLEVELS = 4;
-  function levelParams(worldIdx, sub){
-    const base = { 0:1.0, 1:1.0, 2:1.05, 3:1.1, 4:0.8, 5:0.7 }[worldIdx] || 1;
-    const speed = (0.32 + sub*0.10) * base;        // fall speed factor
-    const interval = Math.max(0.7, 2.2 - sub*0.35); // seconds between spawns
-    const maxOnScreen = 2 + sub;                     // simultaneous targets
-    const goal = 8 + sub*2;                          // targets to clear the level
-    return { speed, interval, maxOnScreen, goal };
-  }
-
-  // ---------- Progress (localStorage) ----------
-  const SAVE_KEY = 'starTyper.v1';
-  let progress = load();
-  function load(){
-    try{ const p = JSON.parse(localStorage.getItem(SAVE_KEY)); if(p&&p.stars) return p; }catch(e){}
-    return { stars:{}, unlockedUpTo:0 }; // stars[worldIdx] = best sub-level reached
-  }
-  function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(progress)); }catch(e){} }
-  function worldUnlocked(i){ return i<=progress.unlockedUpTo; }
-  function worldStars(i){ return progress.stars[i]||0; } // 0..4
 
   // ---------- Settings ----------
   const settings = loadSettings();
@@ -207,291 +173,334 @@
   }
   function saveSettings(){ try{ localStorage.setItem('starTyper.settings', JSON.stringify(settings)); }catch(e){} }
 
-  // ---------- Game state ----------
-  const S = { MENU:'menu', PLAY:'play', WIN:'win', PAUSE:'pause', PARENT:'parent' };
-  let state = S.MENU;
-  let world=0, sub=0, params=null;
-  let targets=[], particles=[], stars=[], guardian=null;
-  let locked=null;            // currently-typed target
-  let destroyed=0, hearts=3, spawnTimer=0, running=false;
-  let lastT=0, shake=0;
+  // ---------- Worlds ----------
+  function chars(str){ return str.split(''); }
+  const WORLDS = [
+    { id:'lower', emoji:'🔤', title:'Little Letters', desc:'a b c ...', kind:'char',
+      pool: chars('abcdefghijklmnopqrstuvwxyz') },
+    { id:'num',   emoji:'🔢', title:'Numbers & Math', desc:'1 2 · + − × ÷', kind:'num' },
+    { id:'upper', emoji:'🅰️', title:'BIG Letters', desc:'A B C ...', kind:'char',
+      pool: chars('ABCDEFGHIJKLMNOPQRSTUVWXYZ') },
+    { id:'sym',   emoji:'❓', title:'Symbols', desc:'. , ! ?', kind:'char',
+      pool: chars('.,!?;\'-') },
+    { id:'words', emoji:'🐱', title:'Little Words', desc:'cat dog sun', kind:'word',
+      pool3: 'cat dog sun hat run mom dad big red bug fox pig top hop map cup bed sit bat'.split(' '),
+      pool4: 'jump play ball fish frog star moon tree bird cake milk book hand foot'.split(' ') },
+    { id:'sent',  emoji:'📖', title:'Sentences', desc:'the cat ran', kind:'word',
+      pool3: ['i see you','a big dog','we can go','it is fun','go go go','i like it'],
+      pool4: ['the cat ran','the sun is up','i can see it','we like to play','the dog is big'] }
+  ];
 
-  // Background twinkle stars
-  function initStars(){ stars=[]; for(let i=0;i<70;i++) stars.push({
-    x:Math.random(), y:Math.random(), r:Math.random()*1.8+0.4, tw:Math.random()*Math.PI*2 }); }
-  initStars();
+  // Un-shifted key that also fires a shifted symbol (so no Shift needed)
+  const SHIFT_BASE = { '!':'1','?':'/','@':'2','#':'3',':':';','+':'=' };
 
+  // ---------- Progress ----------
+  const SAVE_KEY = 'starTyper.v2';
+  let progress = loadProg();
+  function loadProg(){
+    try{ const p=JSON.parse(localStorage.getItem(SAVE_KEY)); if(p&&p.best) return p; }catch(e){}
+    return { best:{}, unlockedUpTo:0 }; // best[worldIdx]=highest level reached
+  }
+  function saveProg(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(progress)); }catch(e){} }
+  function worldUnlocked(i){ return i<=progress.unlockedUpTo; }
+  function bestLevel(i){ return progress.best[i]||0; }
+  const UNLOCK_AT_LEVEL = 3; // reaching this level in a world unlocks the next
+
+  // ---------- Difficulty (continuous, rises with levelNum) ----------
+  const TARGETS_PER_LEVEL = 6;
+  function difficulty(worldIdx, level){
+    const w=WORLDS[worldIdx]; const t=level-1;
+    let speed = 0.30 + t*0.045;
+    let interval = Math.max(0.6, 1.9 - t*0.12);
+    let maxOnScreen = Math.min(6, 2 + Math.floor(t/2));
+    if(w.kind==='num' && level>=3){ speed*=0.62; interval*=1.5; maxOnScreen=Math.min(4,maxOnScreen); }
+    if(w.kind==='word'){ speed*=0.6; interval*=1.6; maxOnScreen=Math.min(3,maxOnScreen); }
+    return { speed, interval, maxOnScreen };
+  }
+
+  // ---------- Numbers world: tiers of math ----------
+  function ri(min,max){ return min + ((Math.random()*(max-min+1))|0); }
+  function numTier(level){
+    if(level<=2) return { op:'digit', label:'🔢 Numbers!' };
+    if(level<=4) return { op:'+', cap:6,  label:'➕ Adding!' };
+    if(level<=6) return { op:'+', cap:10, label:'➕ Bigger adding!' };
+    if(level<=8) return { op:'-', cap:10, label:'➖ Take away!' };
+    if(level<=10)return { op:'-', cap:15, label:'➖ Bigger take away!' };
+    if(level<=12)return { op:'*', cap:5,  label:'✖️ Times!' };
+    if(level<=14)return { op:'*', cap:5, big:true, label:'✖️ Bigger times!' };
+    return { op:'/', cap:5, label:'➗ Sharing!' };
+  }
+  function makeNumberProblem(level){
+    const tier=numTier(level);
+    if(tier.op==='digit'){ const a=ri(0,9); return { display:String(a), answer:String(a) }; }
+    if(tier.op==='+'){ const a=ri(1,tier.cap-1); const b=ri(1,tier.cap-a);
+      return { display:a+' + '+b, answer:String(a+b) }; }
+    if(tier.op==='-'){ const b=ri(1,Math.max(1,tier.cap-1)); const res=ri(0,tier.cap-b); const a=b+res;
+      return { display:a+' − '+b, answer:String(res) }; }
+    if(tier.op==='*'){ const hi=tier.big?5:4; const a=ri(1,hi), b=ri(1,hi);
+      return { display:a+' × '+b, answer:String(a*b) }; }
+    // division: exact, small
+    const d=ri(2,tier.cap), q=ri(1,tier.cap); const a=d*q;
+    return { display:a+' ÷ '+d, answer:String(q) };
+  }
+
+  // ---------- Build a target for a world at a level ----------
   const BUBBLE_COLORS = ['#ff6b9d','#ffa14d','#ffe14d','#7ee36b','#66c7ff','#b48cff','#ff8cc6'];
+  function makeTarget(worldIdx, level){
+    const w=WORLDS[worldIdx];
+    let display, answer, kind;
+    if(w.kind==='num'){ const p=makeNumberProblem(level); display=p.display; answer=p.answer;
+      kind = display.length>1 ? 'math' : 'char'; }
+    else if(w.kind==='word'){ const pool = (level<=3 || !w.pool4) ? w.pool3 : (Math.random()<0.5? w.pool3 : w.pool4);
+      answer = pool[(Math.random()*pool.length)|0]; display=answer; kind='word'; }
+    else { answer = w.pool[(Math.random()*w.pool.length)|0]; display=answer; kind='char'; }
 
-  function startLevel(w, s){
-    world=w; sub=s; params=levelParams(w,s);
-    targets=[]; particles=[]; locked=null; destroyed=0; hearts=3; spawnTimer=0.3; shake=0;
-    guardian={ face:'😀', pulse:0 };
-    state=S.PLAY; running=true; lastT=performance.now();
-    showOnly('hud');
-    updateHud();
-    if(audio() && audio().state==='suspended') audio().resume();
-  }
-
-  function updateHud(){
-    document.getElementById('levelInfo').textContent =
-      WORLDS[world].title + '  •  Level ' + (sub+1) + '/' + SUBLEVELS;
-    document.getElementById('hearts').textContent = '❤️'.repeat(Math.max(0,hearts)) + '🖤'.repeat(Math.max(0,3-hearts));
-  }
-
-  function spawnTarget(){
-    const wl = WORLDS[world];
-    let text = wl.pool[(Math.random()*wl.pool.length)|0];
-    // Spawn from a random edge, aim toward center
-    const edge = (Math.random()*4)|0; let x,y;
-    const m = 40;
+    // spawn from a random edge, aim toward the rocket
+    const m=40, edge=(Math.random()*4)|0; let x,y;
     if(edge===0){ x=Math.random()*W; y=-m; }
     else if(edge===1){ x=W+m; y=Math.random()*H; }
     else if(edge===2){ x=Math.random()*W; y=H+m; }
     else { x=-m; y=Math.random()*H; }
-    const ang = Math.atan2(CY-y, CX-x);
-    const spd = params.speed * (28 + Math.random()*10) * settings.speed;
-    targets.push({
-      text, typed:0, x, y,
-      vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
-      r: wl.mode==='char' ? 34 : Math.max(30, 16+text.length*10),
-      color: BUBBLE_COLORS[(Math.random()*BUBBLE_COLORS.length)|0],
-      wobble:Math.random()*Math.PI*2
-    });
+    const ang=Math.atan2(CY-y, CX-x);
+    const d=difficulty(worldIdx,level);
+    const spd=d.speed*(26+Math.random()*10)*settings.speed;
+    const r = kind==='char' ? 34 : Math.max(30, 18 + display.length*9);
+    return { kind, display, answer, typed:0, x, y,
+      vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, r,
+      color: BUBBLE_COLORS[(Math.random()*BUBBLE_COLORS.length)|0], wobble:Math.random()*6.28 };
   }
 
-  // Case-insensitive match for letters (accept lowercase for capitals per design)
+  // ---------- Game state ----------
+  let playing=false;              // true only during active gameplay
+  let world=0, level=1, params=null;
+  let targets=[], particles=[], beams=[], stars=[], guardian=null;
+  let locked=null, destroyedInLevel=0, score=0, hearts=3, spawnTimer=0, shake=0;
+  let toast=null;                 // {text, life, big}
+  let lastT=0;
+
+  function initStars(){ stars=[]; for(let i=0;i<70;i++) stars.push({
+    x:Math.random(), y:Math.random(), r:Math.random()*1.8+0.4, tw:Math.random()*6.28 }); }
+  initStars();
+
+  function startWorld(w){
+    world=w; level=1; params=difficulty(w,level);
+    targets=[]; particles=[]; beams=[]; locked=null;
+    destroyedInLevel=0; score=0; hearts=3; spawnTimer=0.4; shake=0;
+    guardian={ face:'😀', pulse:0 };
+    if(WORLDS[w].kind==='num'){ setToast(numTier(1).label, true); }
+    recordBest();
+    playing=true;
+    showScreen(null);            // hide overlays, show HUD
+    updateHud();
+    lastT=performance.now();
+    const ac=audio(); if(ac && ac.state==='suspended') ac.resume();
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+
+  function recordBest(){
+    if(level>bestLevel(world)) progress.best[world]=level;
+    if(level>=UNLOCK_AT_LEVEL && world+1>progress.unlockedUpTo && world+1<WORLDS.length)
+      progress.unlockedUpTo=world+1;
+    saveProg();
+  }
+
+  function updateHud(){
+    document.getElementById('levelInfo').textContent = WORLDS[world].title + '  •  Level ' + level;
+    document.getElementById('score').textContent = '⭐ ' + score;
+    document.getElementById('hearts').textContent = '❤️'.repeat(Math.max(0,hearts)) + '🖤'.repeat(Math.max(0,3-hearts));
+  }
+
+  function setToast(text, big){ toast={ text, life:1.8, big:!!big }; }
+
+  // ---------- Matching ----------
   function keyMatches(expected, key){
     if(expected===key) return true;
-    if(expected.length===1 && key.length===1 &&
-       expected.toLowerCase()===key.toLowerCase()) return true;
+    if(expected.length===1 && key.length===1 && expected.toLowerCase()===key.toLowerCase()) return true;
+    if(SHIFT_BASE[expected]===key) return true;
     return false;
   }
 
   function handleKey(key){
-    if(state!==S.PLAY) return;
-    // Locked onto a multi-char target: must continue it
+    if(!playing) return;
+    if(locked && !targets.includes(locked)) locked=null;
     if(locked){
-      if(!targets.includes(locked)){ locked=null; }
-    }
-    if(locked){
-      const expected = locked.text[locked.typed];
-      if(keyMatches(expected, key)){
-        locked.typed++;
-        fireBeam(locked);
-        sfx.zap();
-        if(locked.typed>=locked.text.length){ destroyTarget(locked, true); locked=null; }
-      } else {
-        sfx.bonk();
-      }
+      if(keyMatches(locked.answer[locked.typed], key)){
+        locked.typed++; fireBeam(locked); sfx.zap();
+        if(locked.typed>=locked.answer.length){ destroyTarget(locked); locked=null; }
+      } else sfx.bonk();
       return;
     }
-    // Not locked: find nearest target whose next char matches
     let best=null, bestD=Infinity;
     for(const t of targets){
-      const expected = t.text[t.typed];
-      if(keyMatches(expected, key)){
-        const d=(t.x-CX)**2+(t.y-CY)**2;
-        if(d<bestD){ bestD=d; best=t; }
+      if(keyMatches(t.answer[t.typed], key)){
+        const d=(t.x-CX)**2+(t.y-CY)**2; if(d<bestD){ bestD=d; best=t; }
       }
     }
     if(best){
-      best.typed++;
-      fireBeam(best);
-      sfx.zap();
-      if(best.typed>=best.text.length){ destroyTarget(best, true); }
+      best.typed++; fireBeam(best); sfx.zap();
+      if(best.typed>=best.answer.length) destroyTarget(best);
       else { locked=best; sfx.lock(); }
-    } else {
-      sfx.bonk();
-    }
+    } else sfx.bonk();
   }
 
-  let beams=[];
-  function fireBeam(t){ beams.push({ x:t.x, y:t.y, life:0.18, max:0.18, color:t.color }); guardian.pulse=1; }
+  function fireBeam(t){ beams.push({ x:t.x, y:t.y, life:0.18, max:0.18, color:t.color }); if(guardian) guardian.pulse=1; }
 
-  function destroyTarget(t, byPlayer){
+  function destroyTarget(t){
     const i=targets.indexOf(t); if(i>=0) targets.splice(i,1);
-    burst(t.x, t.y, t.color, byPlayer?18:10);
-    if(byPlayer){
-      destroyed++; sfx.pop();
-      if(destroyed % 5 === 0) sfx.good();
-      if(destroyed>=params.goal){ winLevel(); }
+    burst(t.x,t.y,t.color,18); sfx.pop();
+    score++; destroyedInLevel++;
+    if(score%5===0) sfx.good();
+    if(destroyedInLevel>=TARGETS_PER_LEVEL){ levelUp(); }
+    updateHud();
+  }
+
+  function levelUp(){
+    level++; destroyedInLevel=0; params=difficulty(world,level);
+    recordBest();
+    sfx.levelup();
+    if(WORLDS[world].kind==='num'){
+      const prev=numTier(level-1).label, now=numTier(level).label;
+      setToast(now!==prev ? now : ('Level '+level+'!'), now!==prev);
+    } else {
+      setToast('Level '+level+'! ⭐', false);
     }
+    updateHud();
   }
 
   function loseTarget(t){
     const i=targets.indexOf(t); if(i>=0) targets.splice(i,1);
     if(t===locked) locked=null;
-    hearts--; shake=14; sfx.hurt();
-    burst(CX,CY,'#ff5a5a',20);
-    guardian.face='😣'; setTimeout(()=>{ if(guardian) guardian.face='😀'; }, 500);
+    hearts--; shake=14; sfx.hurt(); burst(CX,CY,'#ff5a5a',20);
+    if(guardian){ guardian.face='😣'; setTimeout(()=>{ if(guardian) guardian.face='😀'; },500); }
     updateHud();
-    if(hearts<=0) loseLevel();
+    if(hearts<=0) gameOver();
+  }
+
+  function gameOver(){
+    playing=false; sfx.over();
+    document.getElementById('overTitle').textContent='Good try! 💪';
+    document.getElementById('overMsg').textContent =
+      'You reached Level '+level+' in '+WORLDS[world].title+' and zapped '+score+'! ⭐';
+    setTimeout(()=>showScreen('over'), 500);
   }
 
   function burst(x,y,color,n){
-    for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=Math.random()*140+40;
+    for(let i=0;i<n;i++){ const a=Math.random()*6.28, s=Math.random()*140+40;
       particles.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:0.6+Math.random()*0.4, max:1, color, r:Math.random()*4+2 }); }
   }
 
-  function winLevel(){
-    running=false; sfx.win();
-    // record stars: stars for a world = highest sub-level index+1 completed
-    const cur = worldStars(world);
-    if(sub+1>cur) progress.stars[world]=sub+1;
-    // unlock next
-    const lastSub = sub>=SUBLEVELS-1;
-    if(lastSub && world+1>progress.unlockedUpTo){ progress.unlockedUpTo=world+1; }
-    save();
-    const wt=document.getElementById('winTitle');
-    const praises=['Great job! 🎉','Wonderful! 🌟','You did it! 🚀','Super typing! ✨','Amazing! 🎈'];
-    wt.textContent=praises[(Math.random()*praises.length)|0];
-    document.getElementById('winStars').textContent='⭐'.repeat(sub+1)+'☆'.repeat(SUBLEVELS-sub-1);
-    document.getElementById('winMsg').textContent =
-      lastSub ? ('You finished all of ' + WORLDS[world].title + '!') :
-                ('Level ' + (sub+1) + ' complete!');
-    const nextBtn=document.getElementById('nextBtn');
-    nextBtn.textContent = lastSub ? 'New world ▶' : 'Next level ▶';
-    setTimeout(()=>showOnly('win'), 600);
-  }
-
-  function loseLevel(){
-    running=false;
-    const wt=document.getElementById('winTitle');
-    wt.textContent='Good try! 💪';
-    document.getElementById('winStars').textContent='';
-    document.getElementById('winMsg').textContent='Let’s try that one again!';
-    document.getElementById('nextBtn').classList.add('hidden');
-    setTimeout(()=>{ showOnly('win'); }, 500);
-  }
-
-  // ---------- Update / render loop ----------
+  // ---------- Loop ----------
   function loop(now){
     requestAnimationFrame(loop);
-    let dt=(now-lastT)/1000; lastT=now; if(dt>0.05) dt=0.05;
-    if(state===S.PLAY && running){ update(dt); }
+    let dt=(now-lastT)/1000; lastT=now; if(dt>0.05) dt=0.05; if(dt<0) dt=0;
+    if(playing) update(dt);
     render();
   }
   function update(dt){
     spawnTimer-=dt;
     if(spawnTimer<=0 && targets.length<params.maxOnScreen){
-      spawnTarget();
+      targets.push(makeTarget(world, level));
       spawnTimer=params.interval*(0.75+Math.random()*0.5)/settings.speed;
     }
-    const hitR = 54;
-    for(let i=targets.length-1;i>=0;i--){
-      const t=targets[i];
+    const hitR=54;
+    for(let i=targets.length-1;i>=0;i--){ const t=targets[i];
       t.x+=t.vx*dt; t.y+=t.vy*dt; t.wobble+=dt*4;
-      const d=Math.hypot(t.x-CX,t.y-CY);
-      if(d<hitR){ loseTarget(t); }
+      if(Math.hypot(t.x-CX,t.y-CY)<hitR) loseTarget(t);
     }
     for(let i=particles.length-1;i>=0;i--){ const p=particles[i];
       p.life-=dt; if(p.life<=0){ particles.splice(i,1); continue; }
       p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.94; p.vy*=0.94; }
     for(let i=beams.length-1;i>=0;i--){ beams[i].life-=dt; if(beams[i].life<=0) beams.splice(i,1); }
-    if(guardian){ guardian.pulse=Math.max(0,guardian.pulse-dt*3); }
+    if(guardian) guardian.pulse=Math.max(0,guardian.pulse-dt*3);
     if(shake>0) shake=Math.max(0,shake-dt*40);
+    if(toast){ toast.life-=dt; if(toast.life<=0) toast=null; }
   }
 
+  // ---------- Render ----------
   function render(){
     ctx.clearRect(0,0,W,H);
-    // background gradient
     const g=ctx.createRadialGradient(CX,CY*0.7,60,CX,CY,Math.max(W,H));
     g.addColorStop(0,'#34246e'); g.addColorStop(1,'#0d1030');
     ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-    // twinkle stars
     const tnow=performance.now()/600;
-    for(const s of stars){ const a=0.4+0.5*Math.sin(tnow+s.tw);
-      ctx.globalAlpha=a; ctx.fillStyle='#fff'; ctx.beginPath();
-      ctx.arc(s.x*W, s.y*H, s.r, 0, 7); ctx.fill(); }
+    for(const s of stars){ ctx.globalAlpha=0.4+0.5*Math.sin(tnow+s.tw);
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s.x*W,s.y*H,s.r,0,7); ctx.fill(); }
     ctx.globalAlpha=1;
 
-    let sx=0, sy=0;
-    if(shake>0){ sx=(Math.random()-0.5)*shake; sy=(Math.random()-0.5)*shake; }
+    let sx=0,sy=0; if(shake>0){ sx=(Math.random()-0.5)*shake; sy=(Math.random()-0.5)*shake; }
     ctx.save(); ctx.translate(sx,sy);
-
-    if(state===S.PLAY || state===S.PAUSE){
-      // beams (laser from guardian to target)
-      for(const b of beams){ const al=b.life/b.max;
-        ctx.globalAlpha=al; ctx.strokeStyle=b.color; ctx.lineWidth=6*al+2;
-        ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(CX,CY); ctx.lineTo(b.x,b.y); ctx.stroke(); }
-      ctx.globalAlpha=1;
-
-      // targets
-      for(const t of targets){ drawTarget(t); }
-
-      // guardian rocket in center
-      drawGuardian();
-    }
-    // particles (draw on top)
+    for(const b of beams){ const al=b.life/b.max;
+      ctx.globalAlpha=al; ctx.strokeStyle=b.color; ctx.lineWidth=6*al+2; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(CX,CY); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+    ctx.globalAlpha=1;
+    for(const t of targets) drawTarget(t);
+    drawGuardian();
     for(const p of particles){ ctx.globalAlpha=Math.max(0,p.life/p.max);
       ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }
     ctx.globalAlpha=1;
     ctx.restore();
+
+    if(toast) drawToast();
+  }
+
+  function drawToast(){
+    const a=Math.min(1, toast.life*1.5);
+    ctx.globalAlpha=a; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='bold '+(toast.big?52:34)+"px 'Comic Sans MS',sans-serif";
+    ctx.lineWidth=6; ctx.strokeStyle='rgba(0,0,0,0.5)';
+    ctx.strokeText(toast.text, CX, H*0.22); ctx.fillStyle='#ffe14d';
+    ctx.fillText(toast.text, CX, H*0.22); ctx.globalAlpha=1;
   }
 
   function drawTarget(t){
     const wob=Math.sin(t.wobble)*3;
-    const isWord=t.text.length>1;
-    ctx.save();
-    ctx.translate(t.x, t.y+wob);
-    // bubble
+    const wide = t.kind!=='char';
+    ctx.save(); ctx.translate(t.x, t.y+wob);
     ctx.shadowColor='rgba(0,0,0,0.35)'; ctx.shadowBlur=10; ctx.shadowOffsetY=4;
-    if(isWord){
-      const w=t.r*2, h=t.r*1.25;
-      roundRect(-w/2,-h/2,w,h,18); ctx.fillStyle=t.color; ctx.fill();
-    } else {
-      ctx.beginPath(); ctx.arc(0,0,t.r,0,7); ctx.fillStyle=t.color; ctx.fill();
-    }
+    if(wide){ const w=t.r*2, h=t.r*1.25; roundRect(-w/2,-h/2,w,h,18); ctx.fillStyle=t.color; ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(0,0,t.r,0,7); ctx.fillStyle=t.color; ctx.fill(); }
     ctx.shadowBlur=0; ctx.shadowOffsetY=0;
-    // white ring
     ctx.lineWidth=4; ctx.strokeStyle='rgba(255,255,255,0.85)';
-    if(isWord){ const w=t.r*2,h=t.r*1.25; roundRect(-w/2,-h/2,w,h,18); ctx.stroke(); }
+    if(wide){ const w=t.r*2,h=t.r*1.25; roundRect(-w/2,-h/2,w,h,18); ctx.stroke(); }
     else { ctx.beginPath(); ctx.arc(0,0,t.r,0,7); ctx.stroke(); }
-    // text
+
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font='bold '+ (isWord? Math.min(30, t.r*0.9) : t.r*1.1) +"px 'Comic Sans MS',sans-serif";
-    // typed chars in white/faded, remaining in dark
-    if(isWord){
-      const full=t.text; let total=ctx.measureText(full).width;
-      let startX=-total/2;
-      for(let i=0;i<full.length;i++){
-        const ch=full[i]; const cw=ctx.measureText(ch).width;
+    if(t.kind==='char'){
+      ctx.font='bold '+(t.r*1.1)+"px 'Comic Sans MS',sans-serif";
+      ctx.fillStyle='#20204a'; ctx.fillText(t.display, 0, 2);
+    } else if(t.kind==='word'){
+      ctx.font='bold '+Math.min(30,t.r*0.9)+"px 'Comic Sans MS',sans-serif";
+      const full=t.display; const total=ctx.measureText(full).width; let sx=-total/2;
+      for(let i=0;i<full.length;i++){ const ch=full[i], cw=ctx.measureText(ch).width;
         ctx.fillStyle = i<t.typed ? 'rgba(255,255,255,0.55)' : '#20204a';
-        ctx.fillText(ch, startX+cw/2, 1); startX+=cw;
-      }
-    } else {
-      ctx.fillStyle='#20204a'; ctx.fillText(t.text, 0, 2);
+        ctx.fillText(ch, sx+cw/2, 1); sx+=cw; }
+    } else { // math: "2 + 3 = _"
+      ctx.font='bold '+Math.min(26,t.r*0.8)+"px 'Comic Sans MS',sans-serif";
+      const typedStr = t.answer.slice(0,t.typed);
+      const line = t.display + ' = ' + (typedStr || '?');
+      ctx.fillStyle='#20204a'; ctx.fillText(line, 0, 1);
     }
     ctx.restore();
   }
 
   function drawGuardian(){
+    if(!guardian) return;
     ctx.save(); ctx.translate(CX,CY);
-    const p=guardian?guardian.pulse:0;
-    const sc=1+p*0.15;
-    ctx.scale(sc,sc);
-    // glow ring
+    const p=guardian.pulse, sc=1+p*0.15; ctx.scale(sc,sc);
     ctx.globalAlpha=0.5+p*0.4; ctx.fillStyle='rgba(120,200,255,0.25)';
     ctx.beginPath(); ctx.arc(0,0,46,0,7); ctx.fill(); ctx.globalAlpha=1;
-    // rocket body
     ctx.fillStyle='#ffe14d';
     ctx.beginPath(); ctx.moveTo(0,-38); ctx.quadraticCurveTo(24,-10,20,20);
     ctx.lineTo(-20,20); ctx.quadraticCurveTo(-24,-10,0,-38); ctx.fill();
-    // window
     ctx.fillStyle='#66c7ff'; ctx.beginPath(); ctx.arc(0,-6,12,0,7); ctx.fill();
     ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
-    // fins
     ctx.fillStyle='#ff6b9d';
     ctx.beginPath(); ctx.moveTo(-20,20); ctx.lineTo(-34,32); ctx.lineTo(-16,10); ctx.fill();
     ctx.beginPath(); ctx.moveTo(20,20); ctx.lineTo(34,32); ctx.lineTo(16,10); ctx.fill();
-    // flame
-    const f=0.6+Math.random()*0.5;
-    ctx.fillStyle='#ff8c1a'; ctx.beginPath();
-    ctx.moveTo(-10,20); ctx.lineTo(0,20+22*f); ctx.lineTo(10,20); ctx.fill();
-    // face
-    ctx.font="18px serif"; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(guardian?guardian.face:'😀', 0, -6);
+    const f=0.6+Math.random()*0.5; ctx.fillStyle='#ff8c1a';
+    ctx.beginPath(); ctx.moveTo(-10,20); ctx.lineTo(0,20+22*f); ctx.lineTo(10,20); ctx.fill();
+    ctx.font='18px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(guardian.face, 0, -6);
     ctx.restore();
   }
 
@@ -503,21 +512,17 @@
 
   // ---------- Input ----------
   window.addEventListener('keydown', e=>{
-    if(e.key==='Escape'){ if(state===S.PLAY) doPause(); else if(state===S.PAUSE) doResume(); return; }
-    if(state!==S.PLAY) return;
-    let k=e.key;
-    if(k.length===1){ e.preventDefault(); handleKey(k); }
-    else if(k===' '){ e.preventDefault(); handleKey(' '); }
-  });
+    if(e.key==='Escape'){ if(playing) doPause(); else if(!document.getElementById('pause').classList.contains('hidden')) doResume(); return; }
+    if(!playing) return;
+    if(e.key.length===1){ e.preventDefault(); handleKey(e.key); }
+  }, true);
 
-  // ---------- UI wiring ----------
-  const screens=['menu','win','pause','parent'];
-  function showOnly(id){
-    // hud shown during play/pause
-    document.getElementById('hud').classList.toggle('hidden', !(id==='hud'||id==='pause'));
-    for(const s of screens){ document.getElementById(s).classList.toggle('hidden', s!==id); }
-    document.getElementById('nextBtn').classList.remove('hidden');
-    if(id==='hud') state=S.PLAY;
+  // ---------- Screens ----------
+  const OVERLAYS=['menu','over','pause','parent'];
+  function showScreen(id){
+    playing = (id===null);
+    document.getElementById('hud').classList.toggle('hidden', !(id===null || id==='pause'));
+    for(const s of OVERLAYS) document.getElementById(s).classList.toggle('hidden', s!==id);
   }
 
   function buildMenu(){
@@ -526,17 +531,13 @@
       const unlocked=worldUnlocked(i);
       const el=document.createElement('div');
       el.className='world'+(unlocked?'':' locked');
-      const st=worldStars(i);
+      const b=bestLevel(i);
       el.innerHTML='<div class="emoji">'+w.emoji+'</div>'+
         '<div class="wtitle">'+w.title+'</div>'+
         '<div class="wdesc">'+w.desc+'</div>'+
-        '<div class="stars">'+ (unlocked? ('⭐'.repeat(st)+'☆'.repeat(SUBLEVELS-st)) : '') +'</div>'+
+        '<div class="best">'+(unlocked ? (b?('Best: Level '+b+' ⭐'):'Tap to play!') : '')+'</div>'+
         (unlocked?'':'<div class="lock">🔒</div>');
-      if(unlocked){ el.addEventListener('click', ()=>{
-        // resume at next unfinished sub-level, else 0
-        const st2=worldStars(i); const startSub = st2>=SUBLEVELS?0:st2;
-        startLevel(i, startSub);
-      }); }
+      if(unlocked) el.addEventListener('click', ()=>startWorld(i));
       list.appendChild(el);
     });
   }
@@ -545,43 +546,46 @@
     const sel=document.getElementById('worldJump'); sel.innerHTML='';
     WORLDS.forEach((w,i)=>{ const o=document.createElement('option'); o.value=i;
       o.textContent=(i+1)+'. '+w.title; sel.appendChild(o); });
-    const sp=document.getElementById('speedSlider'); sp.value=settings.speed;
+    document.getElementById('speedSlider').value=settings.speed;
     document.getElementById('speedVal').textContent=speedLabel(settings.speed);
-    document.getElementById('soundToggle').textContent = settings.sound?'🔊 On':'🔇 Off';
+    document.getElementById('soundToggle').textContent=settings.sound?'🔊 On':'🔇 Off';
   }
   function speedLabel(v){ return v<0.8?'Slow 🐢': v>1.2?'Fast 🐇':'Normal'; }
 
-  document.getElementById('parentBtn').addEventListener('click', ()=>{ buildParent(); showOnly('parent'); });
-  document.getElementById('parentBack').addEventListener('click', ()=>{ buildMenu(); showOnly('menu'); });
+  // ---------- UI wiring ----------
+  document.getElementById('parentBtn').addEventListener('click', ()=>{ buildParent(); showScreen('parent'); });
+  document.getElementById('parentBack').addEventListener('click', ()=>{ buildMenu(); showScreen('menu'); });
   document.getElementById('speedSlider').addEventListener('input', e=>{
-    settings.speed=parseFloat(e.target.value); saveSettings();
+    settings.speed=parseFloat(e.target.value)||1; saveSettings();
     document.getElementById('speedVal').textContent=speedLabel(settings.speed); });
   document.getElementById('soundToggle').addEventListener('click', e=>{
     settings.sound=!settings.sound; saveSettings();
-    e.target.textContent = settings.sound?'🔊 On':'🔇 Off'; if(settings.sound) sfx.good(); });
+    e.target.textContent=settings.sound?'🔊 On':'🔇 Off'; if(settings.sound) sfx.good(); });
   document.getElementById('jumpBtn').addEventListener('click', ()=>{
-    const i=parseInt(document.getElementById('worldJump').value,10)||0; startLevel(i,0); });
+    startWorld(parseInt(document.getElementById('worldJump').value,10)||0); });
   document.getElementById('unlockAll').addEventListener('click', ()=>{
-    progress.unlockedUpTo=WORLDS.length-1; save(); buildParent(); sfx.good(); });
+    progress.unlockedUpTo=WORLDS.length-1; saveProg(); buildParent(); sfx.good(); });
   document.getElementById('resetProg').addEventListener('click', ()=>{
-    progress={ stars:{}, unlockedUpTo:0 }; save(); sfx.bonk(); });
+    progress={ best:{}, unlockedUpTo:0 }; saveProg(); sfx.bonk(); });
 
   document.getElementById('pauseBtn').addEventListener('click', doPause);
   document.getElementById('resumeBtn').addEventListener('click', doResume);
-  document.getElementById('quitBtn').addEventListener('click', ()=>{ buildMenu(); showOnly('menu'); });
-  function doPause(){ if(state!==S.PLAY) return; running=false; state=S.PAUSE; showOnly('pause'); }
-  function doResume(){ if(state!==S.PAUSE) return; state=S.PLAY; running=true; lastT=performance.now(); showOnly('hud'); }
+  document.getElementById('quitBtn').addEventListener('click', ()=>{ buildMenu(); showScreen('menu'); });
+  function doPause(){ if(!playing) return; showScreen('pause'); }
+  function doResume(){ if(document.getElementById('pause').classList.contains('hidden')) return;
+    showScreen(null); lastT=performance.now();
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
 
-  document.getElementById('nextBtn').addEventListener('click', ()=>{
-    const lastSub = sub>=SUBLEVELS-1;
-    if(lastSub){ const nw=Math.min(world+1, WORLDS.length-1); startLevel(nw,0); }
-    else startLevel(world, sub+1);
-  });
-  document.getElementById('replayBtn').addEventListener('click', ()=>startLevel(world, sub));
-  document.getElementById('menuBtn').addEventListener('click', ()=>{ buildMenu(); showOnly('menu'); });
+  document.getElementById('againBtn').addEventListener('click', ()=>startWorld(world));
+  document.getElementById('overHome').addEventListener('click', ()=>{ buildMenu(); showScreen('menu'); });
 
-  // init
-  buildMenu();
-  showOnly('menu');
+  buildMenu(); showScreen('menu');
+
+  // expose a tiny probe for automated testing (harmless)
+  window.__starTyper = { get score(){return score;}, get level(){return level;},
+    get targets(){return targets.length;}, get playing(){return playing;},
+    get answers(){return targets.map(t=>t.answer);},
+    get displays(){return targets.map(t=>t.display);},
+    setLevel(n){ level=n; params=difficulty(world,level); } };
 })();
 </script>
