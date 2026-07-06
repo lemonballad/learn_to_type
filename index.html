@@ -208,11 +208,26 @@
     { id:'sym',   emoji:'❓', title:'Symbols', desc:'. , ! ?', kind:'char',
       pool: chars('.,!?;\'-') },
     { id:'words', emoji:'🐱', title:'Little Words', desc:'cat dog sun', kind:'word',
-      pool3: 'cat dog sun hat run mom dad big red bug fox pig top hop map cup bed sit bat'.split(' '),
-      pool4: 'jump play ball fish frog star moon tree bird cake milk book hand foot'.split(' ') },
+      pool3: ('cat dog sun hat run mom dad big red bug fox pig top hop map cup bed sit bat '+
+        'can man ran fan pan van bag tag rag wag hen pen ten net wet get jet pet let bell '+
+        'box six mix fix wax yes bus cut nut hut hot pot dot lot log dig win pin bin tin '+
+        'cow now how owl ant arm ear eye toe leg lip jam ham egg key bee sea ice cub kid').split(/\s+/),
+      pool4: ('jump play ball fish frog star moon tree bird cake milk book hand foot '+
+        'frog duck goat bear lion seal crab wolf deer swan hawk mole '+
+        'rain snow wind cold warm rock sand leaf seed root nest wing tail paws '+
+        'blue pink gold gray green black white brown '+
+        'ship boat kite drum bell ring gift lamp door bell sock shoe coat hat '+
+        'happy funny sunny windy rainy fluffy little apple grape lemon berry candy '+
+        'jump run walk hop skip swim read sing draw help love smile laugh').split(/\s+/) },
     { id:'sent',  emoji:'📖', title:'Sentences', desc:'the cat ran', kind:'word',
-      pool3: ['i see you','a big dog','we can go','it is fun','go go go','i like it'],
-      pool4: ['the cat ran','the sun is up','i can see it','we like to play','the dog is big'] }
+      pool3: ['i see you','a big dog','we can go','it is fun','go go go','i like it',
+        'the sun is','a red bug','my mom is','i can hop','we are up','it is hot',
+        'a wet dog','you and me','i am six','the cat sat','a fat pig','run to me'],
+      pool4: ['the cat ran','the sun is up','i can see it','we like to play','the dog is big',
+        'the frog can jump','i love my mom','we go to the park','the bird can fly',
+        'my dog is happy','i see a red ball','the fish can swim','we play in the sun',
+        'the moon is up','i can read a book','she has a blue kite','he ran very fast',
+        'the cake is good','we like to run','look at the star','the ant is little'] }
   ];
 
   // Un-shifted key that also fires a shifted symbol (so no Shift needed)
@@ -244,28 +259,31 @@
 
   // ---------- Numbers world: tiers of math ----------
   function ri(min,max){ return min + ((Math.random()*(max-min+1))|0); }
+  // Each tier introduces a new skill; higher tiers MIX the skills already learned.
   function numTier(level){
-    if(level<=2) return { op:'digit', label:'🔢 Numbers!' };
-    if(level<=4) return { op:'+', cap:6,  label:'➕ Adding!' };
-    if(level<=6) return { op:'+', cap:10, label:'➕ Bigger adding!' };
-    if(level<=8) return { op:'-', cap:10, label:'➖ Take away!' };
-    if(level<=10)return { op:'-', cap:15, label:'➖ Bigger take away!' };
-    if(level<=12)return { op:'*', cap:5,  label:'✖️ Times!' };
-    if(level<=14)return { op:'*', cap:5, big:true, label:'✖️ Bigger times!' };
-    return { op:'/', cap:5, label:'➗ Sharing!' };
+    if(level<=2) return { ops:['digit'], label:'🔢 Numbers!' };
+    if(level<=4) return { ops:['+'], cap:6,  label:'➕ Adding!' };
+    if(level<=6) return { ops:['+'], cap:10, label:'➕ Bigger adding!' };
+    if(level<=8) return { ops:['-'], cap:10, label:'➖ Take away!' };
+    if(level<=10)return { ops:['-'], cap:15, label:'➖ Bigger take away!' };
+    if(level<=12)return { ops:['*'], cap:5,  label:'✖️ Times!' };
+    if(level<=14)return { ops:['*'], cap:5, big:true, label:'✖️ Bigger times!' };
+    if(level<=16)return { ops:['/'], cap:5,  label:'➗ Sharing!' };
+    if(level<=19)return { ops:['+','-'], cap:12, label:'🔀 Add & take away!' };
+    if(level<=22)return { ops:['+','-','*'], cap:10, label:'🔀 Add, take away, times!' };
+    return { ops:['+','-','*','/'], cap:10, label:'🌟 Mixed math!' };
   }
   function makeNumberProblem(level){
     const tier=numTier(level);
-    if(tier.op==='digit'){ const a=ri(0,9); return { display:String(a), answer:String(a) }; }
-    if(tier.op==='+'){ const a=ri(1,tier.cap-1); const b=ri(1,tier.cap-a);
-      return { display:a+' + '+b, answer:String(a+b) }; }
-    if(tier.op==='-'){ const b=ri(1,Math.max(1,tier.cap-1)); const res=ri(0,tier.cap-b); const a=b+res;
+    const op=tier.ops[(Math.random()*tier.ops.length)|0];
+    const cap=tier.cap||10;
+    if(op==='digit'){ const a=ri(0,9); return { display:String(a), answer:String(a) }; }
+    if(op==='+'){ const a=ri(1,cap-1), b=ri(1,cap-a); return { display:a+' + '+b, answer:String(a+b) }; }
+    if(op==='-'){ const b=ri(1,Math.max(1,cap-1)); const res=ri(0,cap-b); const a=b+res;
       return { display:a+' − '+b, answer:String(res) }; }
-    if(tier.op==='*'){ const hi=tier.big?5:4; const a=ri(1,hi), b=ri(1,hi);
-      return { display:a+' × '+b, answer:String(a*b) }; }
-    // division: exact, small
-    const d=ri(2,tier.cap), q=ri(1,tier.cap); const a=d*q;
-    return { display:a+' ÷ '+d, answer:String(q) };
+    if(op==='*'){ const hi=tier.big?5:4; const a=ri(1,hi), b=ri(1,hi); return { display:a+' × '+b, answer:String(a*b) }; }
+    // division: always small & exact (divisor and quotient 1..5)
+    const d=ri(2,5), q=ri(1,5); return { display:(d*q)+' ÷ '+d, answer:String(q) };
   }
 
   // ---------- Build a target for a world at a level ----------
@@ -344,27 +362,37 @@
     return false;
   }
 
+  // canonical key that a character responds to (handles case + un-shifted symbols)
+  function canonKey(ch){ if(!ch) return ''; return SHIFT_BASE[ch] || ch.toLowerCase(); }
+  // nearest un-started target whose FIRST char matches this key
+  function pickStart(key, exclude){
+    let best=null, bd=Infinity;
+    for(const t of targets){ if(t===exclude || t.typed>0) continue;
+      if(keyMatches(t.answer[0], key)){ const d=(t.x-CX)**2+(t.y-CY)**2; if(d<bd){ bd=d; best=t; } } }
+    return best;
+  }
+  function startOn(t){
+    t.typed=1; fireBeam(t); sfx.zap();
+    if(t.typed>=t.answer.length) destroyTarget(t); else { locked=t; sfx.lock(); }
+  }
   function handleKey(key){
     if(!playing) return;
     if(locked && !targets.includes(locked)) locked=null;
     if(locked){
+      // 1) continue the word/number you're already on
       if(keyMatches(locked.answer[locked.typed], key)){
         locked.typed++; fireBeam(locked); sfx.zap();
         if(locked.typed>=locked.answer.length){ destroyTarget(locked); locked=null; }
-      } else sfx.bonk();
-      return;
-    }
-    let best=null, bestD=Infinity;
-    for(const t of targets){
-      if(keyMatches(t.answer[t.typed], key)){
-        const d=(t.x-CX)**2+(t.y-CY)**2; if(d<bestD){ bestD=d; best=t; }
+        return;
       }
+      // 2) otherwise, if the key starts a DIFFERENT target, jump to it (fluid switch)
+      const sw=pickStart(key, locked);
+      if(sw){ locked.typed=0; locked=null; startOn(sw); return; }
+      sfx.bonk(); return;
     }
-    if(best){
-      best.typed++; fireBeam(best); sfx.zap();
-      if(best.typed>=best.answer.length) destroyTarget(best);
-      else { locked=best; sfx.lock(); }
-    } else sfx.bonk();
+    const t=pickStart(key, null);
+    if(t){ startOn(t); return; }
+    sfx.bonk();
   }
 
   function fireBeam(t){ beams.push({ x:t.x, y:t.y, life:0.18, max:0.18, color:t.color }); if(guardian) guardian.pulse=1; }
@@ -430,7 +458,11 @@
   function update(dt){
     spawnTimer-=dt;
     if(spawnTimer<=0 && targets.length<params.maxOnScreen){
-      targets.push(makeTarget(world, level));
+      // avoid two on-screen targets that answer to the same first key (removes ambiguity)
+      const used=new Set(targets.map(t=>canonKey(t.answer[0])));
+      let cand=makeTarget(world, level);
+      for(let tries=0; tries<16 && used.has(canonKey(cand.answer[0])); tries++) cand=makeTarget(world, level);
+      if(!used.has(canonKey(cand.answer[0]))) targets.push(cand); // skip this spawn if we couldn't find a free key
       spawnTimer=params.interval*(0.75+Math.random()*0.5)/settings.speed;
     }
     const hitR=54;
@@ -637,6 +669,8 @@
     get answers(){return targets.map(t=>t.answer);},
     get displays(){return targets.map(t=>t.display);},
     get floats(){return floats.map(f=>f.text);},
+    get locked(){return locked?{display:locked.display,typed:locked.typed}:null;},
+    get typedStates(){return targets.map(t=>({d:t.display,typed:t.typed}));},
     setLevel(n){ level=n; params=difficulty(world,level); } };
 })();
 </script>

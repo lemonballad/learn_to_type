@@ -39,11 +39,16 @@ always **small whole numbers, never negative**:
 | 1–2 | Recognize digits | `7` |
 | 3–6 | ➕ Adding | `6 + 3 = ?` |
 | 7–10 | ➖ Taking away | `8 − 3 = ?` |
-| 11–14 | ✖️ Times | `4 × 2 = ?` |
-| 15+ | ➗ Sharing (division) | `6 ÷ 2` |
+| 11–14 | ✖️ Times | `4 × 2` |
+| 15–16 | ➗ Sharing (division) | `6 ÷ 2` |
+| 17–19 | 🔀 Mix: add & take away | |
+| 20–22 | 🔀 Mix: add, take away, times | |
+| 23+ | 🌟 Mixed math (all four) | |
 
-The bubble shows just the problem (e.g. `6 ÷ 2`). Your child types the **answer**;
-the moment it's right, the **full solved equation pops up** on screen (`6 ÷ 2 = 3`).
+Once a skill is introduced it comes back in the mixed levels, so your child keeps
+practicing everything — not just the newest operation. The bubble shows just the
+problem (e.g. `6 ÷ 2`). Your child types the **answer**; the moment it's right, the
+**full solved equation pops up** on screen (`6 ÷ 2 = 3`).
 
 ## 🗣️ Read aloud
 
@@ -68,6 +73,20 @@ Progress and settings are saved on this computer automatically.
 
 - **Uppercase accepts the lowercase key** so little hands don't need to fight the
   Shift key. (This was a deliberate choice for early typers.)
+- **No two targets on screen ever start with the same key**, so a keypress is never
+  ambiguous. And if your child starts one word then presses the first letter of a
+  different target, the game **fluidly switches** to that one instead of getting stuck.
 - Sound effects are generated in code (Web Audio) — there are no sound files to manage.
 - Everything lives in a single file (`index.html`), so it's easy to back up or copy
   to another computer.
+
+## Roadmap / ideas
+
+This is built to grow into a broader learning tool. The worlds are data-driven, so
+these are natural next steps:
+
+- **Alternative languages** (letters, words, and spoken audio in other languages)
+- **Algebra** (`3 + □ = 7`, simple equations) as higher math worlds
+- **Compound & longer sentences**, punctuation, and capitalization practice
+- **Relaxed mode** where math targets wait for an answer instead of drifting
+- Per-child profiles, and a "practice just these keys/facts" picker
