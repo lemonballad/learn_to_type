@@ -1,0 +1,587 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Star Typer — Learn to Type!</title>
+<style>
+  :root { --bg1:#2a1a5e; --bg2:#0d2b53; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#0d1030;
+    font-family: 'Comic Sans MS','Baloo 2','Trebuchet MS',system-ui,sans-serif;
+    -webkit-user-select:none; user-select:none; touch-action:manipulation; }
+  #game { position:fixed; inset:0; display:block; }
+  .overlay { position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; color:#fff;
+    background:radial-gradient(circle at 50% 30%, #34246e 0%, #0d1030 80%); z-index:10; }
+  .hidden { display:none !important; }
+  h1 { font-size: clamp(38px, 9vw, 96px); margin:0 0 6px; color:#ffe14d;
+    text-shadow: 0 4px 0 #d98a00, 0 0 24px #ffcf33; letter-spacing:2px; }
+  .sub { font-size: clamp(16px,3.5vw,26px); color:#bfe3ff; margin:0 0 28px; }
+  .btn { font-family:inherit; cursor:pointer; border:none; border-radius:22px;
+    padding:16px 30px; font-size: clamp(18px,3.5vw,26px); font-weight:bold; color:#fff;
+    background:linear-gradient(#ff7bd0,#e0409a); box-shadow:0 6px 0 #a8206e, 0 8px 18px rgba(0,0,0,.4);
+    margin:8px; transition:transform .08s, box-shadow .08s; }
+  .btn:active { transform:translateY(4px); box-shadow:0 2px 0 #a8206e, 0 4px 10px rgba(0,0,0,.4); }
+  .btn.green { background:linear-gradient(#7ee36b,#33b64a); box-shadow:0 6px 0 #1f7d32,0 8px 18px rgba(0,0,0,.4); }
+  .btn.blue  { background:linear-gradient(#66c7ff,#2f83e0); box-shadow:0 6px 0 #1c569c,0 8px 18px rgba(0,0,0,.4); }
+  .btn.small { padding:10px 18px; font-size:18px; border-radius:16px; }
+  .worlds { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; max-width:820px; padding:10px 16px; }
+  .world { width:150px; border-radius:20px; padding:16px 10px; cursor:pointer; color:#20204a;
+    background:#fff; box-shadow:0 6px 0 rgba(0,0,0,.25); transition:transform .1s; position:relative; }
+  .world:active { transform:scale(.96); }
+  .world.locked { filter:grayscale(.8) brightness(.8); cursor:default; }
+  .world .emoji { font-size:44px; line-height:1; }
+  .world .wtitle { font-weight:bold; font-size:18px; margin-top:6px; }
+  .world .wdesc { font-size:13px; color:#555; margin-top:2px; }
+  .world .lock { position:absolute; top:6px; right:10px; font-size:22px; }
+  .stars { color:#ffcf33; font-size:15px; margin-top:6px; min-height:18px; letter-spacing:1px; }
+  .topbar { position:fixed; top:0; left:0; right:0; height:58px; display:flex; align-items:center;
+    justify-content:space-between; padding:0 14px; color:#fff; z-index:5; pointer-events:none; }
+  .topbar .info { font-size:20px; font-weight:bold; text-shadow:0 2px 4px rgba(0,0,0,.6); }
+  .topbar .hearts { font-size:24px; letter-spacing:2px; }
+  .iconbtn { pointer-events:auto; cursor:pointer; background:rgba(255,255,255,.15); border:2px solid rgba(255,255,255,.5);
+    color:#fff; width:44px; height:44px; border-radius:50%; font-size:22px; display:flex; align-items:center; justify-content:center; }
+  .iconbtn:active { transform:scale(.9); }
+  .row { display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  .panel { background:rgba(255,255,255,.1); border-radius:22px; padding:22px 26px; margin:10px; max-width:520px; }
+  .panel label { display:block; font-size:20px; margin:18px 0 6px; text-align:left; }
+  input[type=range]{ width:100%; height:30px; }
+  .big { font-size: clamp(30px,7vw,64px); margin:0 0 10px; color:#ffe14d; text-shadow:0 3px 0 #d98a00; }
+  .parentnote { font-size:13px; color:#9fb6d8; margin-top:18px; max-width:460px; }
+  .hint { font-size:16px; color:#bfe3ff; margin-top:16px; }
+  select { font-family:inherit; font-size:18px; padding:8px 12px; border-radius:12px; border:none; }
+</style>
+
+<canvas id="game"></canvas>
+
+<!-- Top HUD (during play) -->
+<div id="hud" class="topbar hidden">
+  <div class="iconbtn" id="pauseBtn">⏸</div>
+  <div class="info" id="levelInfo">World 1</div>
+  <div class="hearts" id="hearts">❤️❤️❤️</div>
+</div>
+
+<!-- Title / World select -->
+<div id="menu" class="overlay">
+  <h1>⭐ Star Typer ⭐</h1>
+  <div class="sub">Type the letters to zap them before they reach your rocket!</div>
+  <div class="worlds" id="worldList"></div>
+  <div class="row" style="margin-top:18px">
+    <button class="btn blue small" id="parentBtn">⚙️ Grown‑ups</button>
+  </div>
+</div>
+
+<!-- Level complete -->
+<div id="win" class="overlay hidden">
+  <div class="big" id="winTitle">Great job! 🎉</div>
+  <div class="stars" id="winStars" style="font-size:40px"></div>
+  <div class="sub" id="winMsg"></div>
+  <div class="row">
+    <button class="btn green" id="nextBtn">Next ▶</button>
+    <button class="btn blue" id="replayBtn">Play again</button>
+    <button class="btn" id="menuBtn">🏠 Home</button>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pause" class="overlay hidden">
+  <div class="big">Paused</div>
+  <div class="row">
+    <button class="btn green" id="resumeBtn">▶ Keep playing</button>
+    <button class="btn" id="quitBtn">🏠 Home</button>
+  </div>
+</div>
+
+<!-- Parent / settings -->
+<div id="parent" class="overlay hidden">
+  <div class="big" style="font-size:40px">⚙️ Grown‑ups Corner</div>
+  <div class="panel">
+    <label>Game speed: <span id="speedVal">Normal</span></label>
+    <input type="range" id="speedSlider" min="0.5" max="1.6" step="0.1" value="1">
+    <label>Sound effects</label>
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn small" id="soundToggle">🔊 On</button>
+    </div>
+    <label>Jump to a world</label>
+    <div class="row" style="justify-content:flex-start">
+      <select id="worldJump"></select>
+      <button class="btn small green" id="jumpBtn">Go</button>
+    </div>
+    <label>Progress</label>
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn small" id="unlockAll">Unlock everything</button>
+      <button class="btn small" id="resetProg">Reset stars</button>
+    </div>
+    <div class="parentnote">
+      Tip: Worlds 1–4 (letters, numbers, capitals, symbols) are perfect for a new typer.
+      Capital letters accept the lowercase key too — no Shift needed. Words and Sentences
+      unlock as your reader grows. Progress is saved on this computer.
+    </div>
+  </div>
+  <button class="btn" id="parentBack">◀ Back</button>
+</div>
+
+<script>
+"use strict";
+(function(){
+  // ---------- Canvas ----------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W=0, H=0, CX=0, CY=0, DPR=1;
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio||1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    CX = W/2; CY = H/2;
+  }
+  window.addEventListener('resize', resize); resize();
+
+  // ---------- Sound (WebAudio, no files) ----------
+  let AC=null;
+  function audio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+  function tone(freq, dur, type, vol, slideTo){
+    if(!settings.sound) return; const ac = audio(); if(!ac) return;
+    const t = ac.currentTime;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type||'square'; o.frequency.setValueAtTime(freq, t);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t+dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol||0.2, t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur+0.02);
+  }
+  const sfx = {
+    zap(){ tone(880, 0.12, 'square', 0.18, 220); tone(1320,0.08,'sine',0.12); },
+    pop(){ tone(520,0.16,'triangle',0.22,1040); },
+    good(){ tone(660,0.09,'sine',0.2); setTimeout(()=>tone(990,0.12,'sine',0.2),90); },
+    bonk(){ tone(160,0.14,'sawtooth',0.15,90); },
+    hurt(){ tone(300,0.25,'sawtooth',0.2,110); },
+    win(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'triangle',0.22),i*120)); },
+    lock(){ tone(740,0.06,'sine',0.14); }
+  };
+
+  // ---------- Worlds ----------
+  function letters(str){ return str.split(''); }
+  const WORLDS = [
+    { id:'lower', emoji:'🔤', title:'Little Letters', desc:'a b c ...', mode:'char',
+      pool: letters('abcdefghijklmnopqrstuvwxyz') },
+    { id:'num', emoji:'🔢', title:'Numbers', desc:'0 1 2 ...', mode:'char',
+      pool: letters('0123456789') },
+    { id:'upper', emoji:'🅰️', title:'BIG Letters', desc:'A B C ...', mode:'char',
+      pool: letters('ABCDEFGHIJKLMNOPQRSTUVWXYZ') },
+    { id:'sym', emoji:'❓', title:'Symbols', desc:'. , ! ?', mode:'char',
+      pool: letters('.,!?;:\'-') },
+    { id:'words', emoji:'🐱', title:'Little Words', desc:'cat dog sun', mode:'word',
+      pool: 'cat dog sun hat run mom dad big red bug fox pig top hop map cup bed sit bat'.split(' ') },
+    { id:'sent', emoji:'📖', title:'Sentences', desc:'the cat ran', mode:'word',
+      pool: ['the cat ran','i see you','a big dog','we can go','it is fun','the sun is up','i like it','go go go'] }
+  ];
+  // 4 sub-levels per world with rising difficulty
+  const SUBLEVELS = 4;
+  function levelParams(worldIdx, sub){
+    const base = { 0:1.0, 1:1.0, 2:1.05, 3:1.1, 4:0.8, 5:0.7 }[worldIdx] || 1;
+    const speed = (0.32 + sub*0.10) * base;        // fall speed factor
+    const interval = Math.max(0.7, 2.2 - sub*0.35); // seconds between spawns
+    const maxOnScreen = 2 + sub;                     // simultaneous targets
+    const goal = 8 + sub*2;                          // targets to clear the level
+    return { speed, interval, maxOnScreen, goal };
+  }
+
+  // ---------- Progress (localStorage) ----------
+  const SAVE_KEY = 'starTyper.v1';
+  let progress = load();
+  function load(){
+    try{ const p = JSON.parse(localStorage.getItem(SAVE_KEY)); if(p&&p.stars) return p; }catch(e){}
+    return { stars:{}, unlockedUpTo:0 }; // stars[worldIdx] = best sub-level reached
+  }
+  function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(progress)); }catch(e){} }
+  function worldUnlocked(i){ return i<=progress.unlockedUpTo; }
+  function worldStars(i){ return progress.stars[i]||0; } // 0..4
+
+  // ---------- Settings ----------
+  const settings = loadSettings();
+  function loadSettings(){
+    try{ const s = JSON.parse(localStorage.getItem('starTyper.settings'));
+      if(s) return Object.assign({speed:1, sound:true}, s); }catch(e){}
+    return { speed:1, sound:true };
+  }
+  function saveSettings(){ try{ localStorage.setItem('starTyper.settings', JSON.stringify(settings)); }catch(e){} }
+
+  // ---------- Game state ----------
+  const S = { MENU:'menu', PLAY:'play', WIN:'win', PAUSE:'pause', PARENT:'parent' };
+  let state = S.MENU;
+  let world=0, sub=0, params=null;
+  let targets=[], particles=[], stars=[], guardian=null;
+  let locked=null;            // currently-typed target
+  let destroyed=0, hearts=3, spawnTimer=0, running=false;
+  let lastT=0, shake=0;
+
+  // Background twinkle stars
+  function initStars(){ stars=[]; for(let i=0;i<70;i++) stars.push({
+    x:Math.random(), y:Math.random(), r:Math.random()*1.8+0.4, tw:Math.random()*Math.PI*2 }); }
+  initStars();
+
+  const BUBBLE_COLORS = ['#ff6b9d','#ffa14d','#ffe14d','#7ee36b','#66c7ff','#b48cff','#ff8cc6'];
+
+  function startLevel(w, s){
+    world=w; sub=s; params=levelParams(w,s);
+    targets=[]; particles=[]; locked=null; destroyed=0; hearts=3; spawnTimer=0.3; shake=0;
+    guardian={ face:'😀', pulse:0 };
+    state=S.PLAY; running=true; lastT=performance.now();
+    showOnly('hud');
+    updateHud();
+    if(audio() && audio().state==='suspended') audio().resume();
+  }
+
+  function updateHud(){
+    document.getElementById('levelInfo').textContent =
+      WORLDS[world].title + '  •  Level ' + (sub+1) + '/' + SUBLEVELS;
+    document.getElementById('hearts').textContent = '❤️'.repeat(Math.max(0,hearts)) + '🖤'.repeat(Math.max(0,3-hearts));
+  }
+
+  function spawnTarget(){
+    const wl = WORLDS[world];
+    let text = wl.pool[(Math.random()*wl.pool.length)|0];
+    // Spawn from a random edge, aim toward center
+    const edge = (Math.random()*4)|0; let x,y;
+    const m = 40;
+    if(edge===0){ x=Math.random()*W; y=-m; }
+    else if(edge===1){ x=W+m; y=Math.random()*H; }
+    else if(edge===2){ x=Math.random()*W; y=H+m; }
+    else { x=-m; y=Math.random()*H; }
+    const ang = Math.atan2(CY-y, CX-x);
+    const spd = params.speed * (28 + Math.random()*10) * settings.speed;
+    targets.push({
+      text, typed:0, x, y,
+      vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
+      r: wl.mode==='char' ? 34 : Math.max(30, 16+text.length*10),
+      color: BUBBLE_COLORS[(Math.random()*BUBBLE_COLORS.length)|0],
+      wobble:Math.random()*Math.PI*2
+    });
+  }
+
+  // Case-insensitive match for letters (accept lowercase for capitals per design)
+  function keyMatches(expected, key){
+    if(expected===key) return true;
+    if(expected.length===1 && key.length===1 &&
+       expected.toLowerCase()===key.toLowerCase()) return true;
+    return false;
+  }
+
+  function handleKey(key){
+    if(state!==S.PLAY) return;
+    // Locked onto a multi-char target: must continue it
+    if(locked){
+      if(!targets.includes(locked)){ locked=null; }
+    }
+    if(locked){
+      const expected = locked.text[locked.typed];
+      if(keyMatches(expected, key)){
+        locked.typed++;
+        fireBeam(locked);
+        sfx.zap();
+        if(locked.typed>=locked.text.length){ destroyTarget(locked, true); locked=null; }
+      } else {
+        sfx.bonk();
+      }
+      return;
+    }
+    // Not locked: find nearest target whose next char matches
+    let best=null, bestD=Infinity;
+    for(const t of targets){
+      const expected = t.text[t.typed];
+      if(keyMatches(expected, key)){
+        const d=(t.x-CX)**2+(t.y-CY)**2;
+        if(d<bestD){ bestD=d; best=t; }
+      }
+    }
+    if(best){
+      best.typed++;
+      fireBeam(best);
+      sfx.zap();
+      if(best.typed>=best.text.length){ destroyTarget(best, true); }
+      else { locked=best; sfx.lock(); }
+    } else {
+      sfx.bonk();
+    }
+  }
+
+  let beams=[];
+  function fireBeam(t){ beams.push({ x:t.x, y:t.y, life:0.18, max:0.18, color:t.color }); guardian.pulse=1; }
+
+  function destroyTarget(t, byPlayer){
+    const i=targets.indexOf(t); if(i>=0) targets.splice(i,1);
+    burst(t.x, t.y, t.color, byPlayer?18:10);
+    if(byPlayer){
+      destroyed++; sfx.pop();
+      if(destroyed % 5 === 0) sfx.good();
+      if(destroyed>=params.goal){ winLevel(); }
+    }
+  }
+
+  function loseTarget(t){
+    const i=targets.indexOf(t); if(i>=0) targets.splice(i,1);
+    if(t===locked) locked=null;
+    hearts--; shake=14; sfx.hurt();
+    burst(CX,CY,'#ff5a5a',20);
+    guardian.face='😣'; setTimeout(()=>{ if(guardian) guardian.face='😀'; }, 500);
+    updateHud();
+    if(hearts<=0) loseLevel();
+  }
+
+  function burst(x,y,color,n){
+    for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=Math.random()*140+40;
+      particles.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:0.6+Math.random()*0.4, max:1, color, r:Math.random()*4+2 }); }
+  }
+
+  function winLevel(){
+    running=false; sfx.win();
+    // record stars: stars for a world = highest sub-level index+1 completed
+    const cur = worldStars(world);
+    if(sub+1>cur) progress.stars[world]=sub+1;
+    // unlock next
+    const lastSub = sub>=SUBLEVELS-1;
+    if(lastSub && world+1>progress.unlockedUpTo){ progress.unlockedUpTo=world+1; }
+    save();
+    const wt=document.getElementById('winTitle');
+    const praises=['Great job! 🎉','Wonderful! 🌟','You did it! 🚀','Super typing! ✨','Amazing! 🎈'];
+    wt.textContent=praises[(Math.random()*praises.length)|0];
+    document.getElementById('winStars').textContent='⭐'.repeat(sub+1)+'☆'.repeat(SUBLEVELS-sub-1);
+    document.getElementById('winMsg').textContent =
+      lastSub ? ('You finished all of ' + WORLDS[world].title + '!') :
+                ('Level ' + (sub+1) + ' complete!');
+    const nextBtn=document.getElementById('nextBtn');
+    nextBtn.textContent = lastSub ? 'New world ▶' : 'Next level ▶';
+    setTimeout(()=>showOnly('win'), 600);
+  }
+
+  function loseLevel(){
+    running=false;
+    const wt=document.getElementById('winTitle');
+    wt.textContent='Good try! 💪';
+    document.getElementById('winStars').textContent='';
+    document.getElementById('winMsg').textContent='Let’s try that one again!';
+    document.getElementById('nextBtn').classList.add('hidden');
+    setTimeout(()=>{ showOnly('win'); }, 500);
+  }
+
+  // ---------- Update / render loop ----------
+  function loop(now){
+    requestAnimationFrame(loop);
+    let dt=(now-lastT)/1000; lastT=now; if(dt>0.05) dt=0.05;
+    if(state===S.PLAY && running){ update(dt); }
+    render();
+  }
+  function update(dt){
+    spawnTimer-=dt;
+    if(spawnTimer<=0 && targets.length<params.maxOnScreen){
+      spawnTarget();
+      spawnTimer=params.interval*(0.75+Math.random()*0.5)/settings.speed;
+    }
+    const hitR = 54;
+    for(let i=targets.length-1;i>=0;i--){
+      const t=targets[i];
+      t.x+=t.vx*dt; t.y+=t.vy*dt; t.wobble+=dt*4;
+      const d=Math.hypot(t.x-CX,t.y-CY);
+      if(d<hitR){ loseTarget(t); }
+    }
+    for(let i=particles.length-1;i>=0;i--){ const p=particles[i];
+      p.life-=dt; if(p.life<=0){ particles.splice(i,1); continue; }
+      p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.94; p.vy*=0.94; }
+    for(let i=beams.length-1;i>=0;i--){ beams[i].life-=dt; if(beams[i].life<=0) beams.splice(i,1); }
+    if(guardian){ guardian.pulse=Math.max(0,guardian.pulse-dt*3); }
+    if(shake>0) shake=Math.max(0,shake-dt*40);
+  }
+
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    // background gradient
+    const g=ctx.createRadialGradient(CX,CY*0.7,60,CX,CY,Math.max(W,H));
+    g.addColorStop(0,'#34246e'); g.addColorStop(1,'#0d1030');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // twinkle stars
+    const tnow=performance.now()/600;
+    for(const s of stars){ const a=0.4+0.5*Math.sin(tnow+s.tw);
+      ctx.globalAlpha=a; ctx.fillStyle='#fff'; ctx.beginPath();
+      ctx.arc(s.x*W, s.y*H, s.r, 0, 7); ctx.fill(); }
+    ctx.globalAlpha=1;
+
+    let sx=0, sy=0;
+    if(shake>0){ sx=(Math.random()-0.5)*shake; sy=(Math.random()-0.5)*shake; }
+    ctx.save(); ctx.translate(sx,sy);
+
+    if(state===S.PLAY || state===S.PAUSE){
+      // beams (laser from guardian to target)
+      for(const b of beams){ const al=b.life/b.max;
+        ctx.globalAlpha=al; ctx.strokeStyle=b.color; ctx.lineWidth=6*al+2;
+        ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(CX,CY); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+      ctx.globalAlpha=1;
+
+      // targets
+      for(const t of targets){ drawTarget(t); }
+
+      // guardian rocket in center
+      drawGuardian();
+    }
+    // particles (draw on top)
+    for(const p of particles){ ctx.globalAlpha=Math.max(0,p.life/p.max);
+      ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }
+    ctx.globalAlpha=1;
+    ctx.restore();
+  }
+
+  function drawTarget(t){
+    const wob=Math.sin(t.wobble)*3;
+    const isWord=t.text.length>1;
+    ctx.save();
+    ctx.translate(t.x, t.y+wob);
+    // bubble
+    ctx.shadowColor='rgba(0,0,0,0.35)'; ctx.shadowBlur=10; ctx.shadowOffsetY=4;
+    if(isWord){
+      const w=t.r*2, h=t.r*1.25;
+      roundRect(-w/2,-h/2,w,h,18); ctx.fillStyle=t.color; ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.arc(0,0,t.r,0,7); ctx.fillStyle=t.color; ctx.fill();
+    }
+    ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+    // white ring
+    ctx.lineWidth=4; ctx.strokeStyle='rgba(255,255,255,0.85)';
+    if(isWord){ const w=t.r*2,h=t.r*1.25; roundRect(-w/2,-h/2,w,h,18); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.arc(0,0,t.r,0,7); ctx.stroke(); }
+    // text
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='bold '+ (isWord? Math.min(30, t.r*0.9) : t.r*1.1) +"px 'Comic Sans MS',sans-serif";
+    // typed chars in white/faded, remaining in dark
+    if(isWord){
+      const full=t.text; let total=ctx.measureText(full).width;
+      let startX=-total/2;
+      for(let i=0;i<full.length;i++){
+        const ch=full[i]; const cw=ctx.measureText(ch).width;
+        ctx.fillStyle = i<t.typed ? 'rgba(255,255,255,0.55)' : '#20204a';
+        ctx.fillText(ch, startX+cw/2, 1); startX+=cw;
+      }
+    } else {
+      ctx.fillStyle='#20204a'; ctx.fillText(t.text, 0, 2);
+    }
+    ctx.restore();
+  }
+
+  function drawGuardian(){
+    ctx.save(); ctx.translate(CX,CY);
+    const p=guardian?guardian.pulse:0;
+    const sc=1+p*0.15;
+    ctx.scale(sc,sc);
+    // glow ring
+    ctx.globalAlpha=0.5+p*0.4; ctx.fillStyle='rgba(120,200,255,0.25)';
+    ctx.beginPath(); ctx.arc(0,0,46,0,7); ctx.fill(); ctx.globalAlpha=1;
+    // rocket body
+    ctx.fillStyle='#ffe14d';
+    ctx.beginPath(); ctx.moveTo(0,-38); ctx.quadraticCurveTo(24,-10,20,20);
+    ctx.lineTo(-20,20); ctx.quadraticCurveTo(-24,-10,0,-38); ctx.fill();
+    // window
+    ctx.fillStyle='#66c7ff'; ctx.beginPath(); ctx.arc(0,-6,12,0,7); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
+    // fins
+    ctx.fillStyle='#ff6b9d';
+    ctx.beginPath(); ctx.moveTo(-20,20); ctx.lineTo(-34,32); ctx.lineTo(-16,10); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(20,20); ctx.lineTo(34,32); ctx.lineTo(16,10); ctx.fill();
+    // flame
+    const f=0.6+Math.random()*0.5;
+    ctx.fillStyle='#ff8c1a'; ctx.beginPath();
+    ctx.moveTo(-10,20); ctx.lineTo(0,20+22*f); ctx.lineTo(10,20); ctx.fill();
+    // face
+    ctx.font="18px serif"; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(guardian?guardian.face:'😀', 0, -6);
+    ctx.restore();
+  }
+
+  function roundRect(x,y,w,h,r){ ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  requestAnimationFrame(loop);
+
+  // ---------- Input ----------
+  window.addEventListener('keydown', e=>{
+    if(e.key==='Escape'){ if(state===S.PLAY) doPause(); else if(state===S.PAUSE) doResume(); return; }
+    if(state!==S.PLAY) return;
+    let k=e.key;
+    if(k.length===1){ e.preventDefault(); handleKey(k); }
+    else if(k===' '){ e.preventDefault(); handleKey(' '); }
+  });
+
+  // ---------- UI wiring ----------
+  const screens=['menu','win','pause','parent'];
+  function showOnly(id){
+    // hud shown during play/pause
+    document.getElementById('hud').classList.toggle('hidden', !(id==='hud'||id==='pause'));
+    for(const s of screens){ document.getElementById(s).classList.toggle('hidden', s!==id); }
+    document.getElementById('nextBtn').classList.remove('hidden');
+    if(id==='hud') state=S.PLAY;
+  }
+
+  function buildMenu(){
+    const list=document.getElementById('worldList'); list.innerHTML='';
+    WORLDS.forEach((w,i)=>{
+      const unlocked=worldUnlocked(i);
+      const el=document.createElement('div');
+      el.className='world'+(unlocked?'':' locked');
+      const st=worldStars(i);
+      el.innerHTML='<div class="emoji">'+w.emoji+'</div>'+
+        '<div class="wtitle">'+w.title+'</div>'+
+        '<div class="wdesc">'+w.desc+'</div>'+
+        '<div class="stars">'+ (unlocked? ('⭐'.repeat(st)+'☆'.repeat(SUBLEVELS-st)) : '') +'</div>'+
+        (unlocked?'':'<div class="lock">🔒</div>');
+      if(unlocked){ el.addEventListener('click', ()=>{
+        // resume at next unfinished sub-level, else 0
+        const st2=worldStars(i); const startSub = st2>=SUBLEVELS?0:st2;
+        startLevel(i, startSub);
+      }); }
+      list.appendChild(el);
+    });
+  }
+
+  function buildParent(){
+    const sel=document.getElementById('worldJump'); sel.innerHTML='';
+    WORLDS.forEach((w,i)=>{ const o=document.createElement('option'); o.value=i;
+      o.textContent=(i+1)+'. '+w.title; sel.appendChild(o); });
+    const sp=document.getElementById('speedSlider'); sp.value=settings.speed;
+    document.getElementById('speedVal').textContent=speedLabel(settings.speed);
+    document.getElementById('soundToggle').textContent = settings.sound?'🔊 On':'🔇 Off';
+  }
+  function speedLabel(v){ return v<0.8?'Slow 🐢': v>1.2?'Fast 🐇':'Normal'; }
+
+  document.getElementById('parentBtn').addEventListener('click', ()=>{ buildParent(); showOnly('parent'); });
+  document.getElementById('parentBack').addEventListener('click', ()=>{ buildMenu(); showOnly('menu'); });
+  document.getElementById('speedSlider').addEventListener('input', e=>{
+    settings.speed=parseFloat(e.target.value); saveSettings();
+    document.getElementById('speedVal').textContent=speedLabel(settings.speed); });
+  document.getElementById('soundToggle').addEventListener('click', e=>{
+    settings.sound=!settings.sound; saveSettings();
+    e.target.textContent = settings.sound?'🔊 On':'🔇 Off'; if(settings.sound) sfx.good(); });
+  document.getElementById('jumpBtn').addEventListener('click', ()=>{
+    const i=parseInt(document.getElementById('worldJump').value,10)||0; startLevel(i,0); });
+  document.getElementById('unlockAll').addEventListener('click', ()=>{
+    progress.unlockedUpTo=WORLDS.length-1; save(); buildParent(); sfx.good(); });
+  document.getElementById('resetProg').addEventListener('click', ()=>{
+    progress={ stars:{}, unlockedUpTo:0 }; save(); sfx.bonk(); });
+
+  document.getElementById('pauseBtn').addEventListener('click', doPause);
+  document.getElementById('resumeBtn').addEventListener('click', doResume);
+  document.getElementById('quitBtn').addEventListener('click', ()=>{ buildMenu(); showOnly('menu'); });
+  function doPause(){ if(state!==S.PLAY) return; running=false; state=S.PAUSE; showOnly('pause'); }
+  function doResume(){ if(state!==S.PAUSE) return; state=S.PLAY; running=true; lastT=performance.now(); showOnly('hud'); }
+
+  document.getElementById('nextBtn').addEventListener('click', ()=>{
+    const lastSub = sub>=SUBLEVELS-1;
+    if(lastSub){ const nw=Math.min(world+1, WORLDS.length-1); startLevel(nw,0); }
+    else startLevel(world, sub+1);
+  });
+  document.getElementById('replayBtn').addEventListener('click', ()=>startLevel(world, sub));
+  document.getElementById('menuBtn').addEventListener('click', ()=>{ buildMenu(); showOnly('menu'); });
+
+  // init
+  buildMenu();
+  showOnly('menu');
+})();
+</script>
