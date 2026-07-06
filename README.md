@@ -91,6 +91,8 @@ which voices your computer has:
 
 Tap the **⚙️ Grown‑ups** button on the title screen to:
 
+- Toggle **Dark mode** 🌙 (dims the bright menus, keyboard, and background for
+  night-time play; follows your device's light/dark setting by default)
 - Adjust **game speed** (Slow 🐢 / Normal / Fast 🐇)
 - Turn **sound effects** on/off
 - Turn **Read aloud** (spoken words & sentences) on/off and pick the **voice**

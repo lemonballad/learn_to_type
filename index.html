@@ -69,6 +69,18 @@
     .iconbtn { width:38px; height:38px; font-size:18px; }
     .key { height:42px; font-size:18px; box-shadow:0 2px 0 rgba(0,0,0,.35); }
   }
+  /* Dark (night) mode: dim the bright surfaces for low-light play */
+  :root[data-theme="dark"] body { background:#04050c; }
+  :root[data-theme="dark"] .overlay {
+    background:radial-gradient(circle at 50% 30%, #171033 0%, #04050c 80%); }
+  :root[data-theme="dark"] .world { background:#262a42; color:#e8ecff; box-shadow:0 6px 0 rgba(0,0,0,.5); }
+  :root[data-theme="dark"] .world .wdesc { color:#9aa3c4; }
+  :root[data-theme="dark"] .panel { background:rgba(255,255,255,.06); }
+  :root[data-theme="dark"] .key { background:#333757; color:#eef1ff; }
+  :root[data-theme="dark"] .key:active { background:#4a4f78; }
+  :root[data-theme="dark"] select { background:#333757; color:#eef1ff; }
+  :root[data-theme="dark"] .keys {
+    background:linear-gradient(to top, rgba(4,5,12,.92), rgba(4,5,12,0)); }
 </style>
 
 <canvas id="game"></canvas>
@@ -119,6 +131,10 @@
 <div id="parent" class="overlay hidden">
   <div class="big" style="font-size:40px">⚙️ Grown‑ups Corner</div>
   <div class="panel">
+    <label>Dark mode (easier on the eyes at night)</label>
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn small" id="darkToggle">🌙 On</button>
+    </div>
     <label>Game speed: <span id="speedVal">Normal</span></label>
     <input type="range" id="speedSlider" min="0.5" max="1.6" step="0.1" value="1">
     <label>Sound effects</label>
@@ -251,11 +267,24 @@
   const settings = loadSettings();
   function loadSettings(){
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
+    let prefersDark=false; try{ prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches; }catch(e){}
+    const defaults = { speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9, touchKeys:isTouch, dark:prefersDark };
     try{ const s = JSON.parse(localStorage.getItem('starTyper.settings'));
-      if(s) return Object.assign({speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9, touchKeys:isTouch}, s); }catch(e){}
-    return { speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9, touchKeys:isTouch };
+      if(s) return Object.assign(defaults, s); }catch(e){}
+    return defaults;
   }
   function saveSettings(){ try{ localStorage.setItem('starTyper.settings', JSON.stringify(settings)); }catch(e){} }
+
+  // ---------- Theme (day / dark) ----------
+  const THEMES = {
+    day:  { bg1:'#34246e', bg2:'#0d1030', star:'#ffffff', starMax:0.9 },
+    dark: { bg1:'#171033', bg2:'#04050c', star:'#aab0d6', starMax:0.6 }
+  };
+  let THEME = THEMES.day;
+  function applyTheme(){
+    THEME = settings.dark ? THEMES.dark : THEMES.day;
+    document.documentElement.dataset.theme = settings.dark ? 'dark' : 'light';
+  }
 
   // ---------- Worlds ----------
   function chars(str){ return str.split(''); }
@@ -545,11 +574,11 @@
   function render(){
     ctx.clearRect(0,0,W,H);
     const g=ctx.createRadialGradient(CX,CY*0.7,60,CX,CY,Math.max(W,H));
-    g.addColorStop(0,'#34246e'); g.addColorStop(1,'#0d1030');
+    g.addColorStop(0,THEME.bg1); g.addColorStop(1,THEME.bg2);
     ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
     const tnow=performance.now()/600;
-    for(const s of stars){ ctx.globalAlpha=0.4+0.5*Math.sin(tnow+s.tw);
-      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s.x*W,s.y*H,s.r,0,7); ctx.fill(); }
+    for(const s of stars){ ctx.globalAlpha=(0.4+0.5*Math.sin(tnow+s.tw))*THEME.starMax;
+      ctx.fillStyle=THEME.star; ctx.beginPath(); ctx.arc(s.x*W,s.y*H,s.r,0,7); ctx.fill(); }
     ctx.globalAlpha=1;
 
     let sx=0,sy=0; if(shake>0){ sx=(Math.random()-0.5)*shake; sy=(Math.random()-0.5)*shake; }
@@ -706,6 +735,7 @@
     const sel=document.getElementById('worldJump'); sel.innerHTML='';
     WORLDS.forEach((w,i)=>{ const o=document.createElement('option'); o.value=i;
       o.textContent=(i+1)+'. '+w.title; sel.appendChild(o); });
+    document.getElementById('darkToggle').textContent=settings.dark?'🌙 On':'☀️ Off';
     document.getElementById('speedSlider').value=settings.speed;
     document.getElementById('speedVal').textContent=speedLabel(settings.speed);
     document.getElementById('soundToggle').textContent=settings.sound?'🔊 On':'🔇 Off';
@@ -745,6 +775,9 @@
   document.getElementById('keysToggle').addEventListener('click', e=>{
     settings.touchKeys=!settings.touchKeys; saveSettings();
     e.target.textContent=settings.touchKeys?'⌨️ On':'⌨️ Off'; updateKeysVisible(); });
+  document.getElementById('darkToggle').addEventListener('click', e=>{
+    settings.dark=!settings.dark; saveSettings(); applyTheme();
+    e.target.textContent=settings.dark?'🌙 On':'☀️ Off'; });
   function sampleSpeak(text){ const was=settings.speak; settings.speak=true; speak(text); settings.speak=was; }
   document.getElementById('voicePick').addEventListener('change', e=>{
     settings.voiceName=e.target.value||''; saveSettings(); sampleSpeak('The cat can jump!'); });
@@ -771,7 +804,7 @@
   document.getElementById('againBtn').addEventListener('click', ()=>startWorld(world));
   document.getElementById('overHome').addEventListener('click', ()=>{ buildMenu(); showScreen('menu'); });
 
-  buildMenu(); showScreen('menu');
+  applyTheme(); buildMenu(); showScreen('menu');
 
   // expose a tiny probe for automated testing (harmless)
   window.__starTyper = { get score(){return score;}, get level(){return level;},
