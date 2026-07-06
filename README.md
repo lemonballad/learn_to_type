@@ -11,6 +11,18 @@ matching key to zap them before they reach the ship!
 **Just double‑click `index.html`.** It opens in your web browser (Chrome, Edge,
 Firefox, or Safari). No installation, no internet needed — it runs entirely offline.
 
+### 📱 On a tablet or phone
+
+The game works on touch devices too. When it detects a touchscreen it shows a big,
+kid‑friendly **on‑screen keyboard** at the bottom that changes with the world:
+letters for the letter worlds, a **number pad** for Numbers & Math, symbols for the
+Symbol world, and a space bar for words and sentences. You can force the on‑screen
+keyboard on or off in the Grown‑ups Corner.
+
+To play on a tablet you can either open the `index.html` file in the tablet's browser,
+or (easiest) put the file somewhere both devices can reach and open it there. It's a
+single file, so it's easy to copy over.
+
 - Type the letter/number/symbol shown in each bubble to blast it.
 - **Levels rise automatically** as you zap targets — the game never stops to ask
   "keep going?" It just gets a little faster and busier as your child gets better.
@@ -81,7 +93,8 @@ Tap the **⚙️ Grown‑ups** button on the title screen to:
 
 - Adjust **game speed** (Slow 🐢 / Normal / Fast 🐇)
 - Turn **sound effects** on/off
-- Turn **Read aloud** (spoken words & sentences) on/off
+- Turn **Read aloud** (spoken words & sentences) on/off and pick the **voice**
+- Turn the **on‑screen keyboard** on/off (for tablets & phones)
 - **Jump to any world** or **unlock everything** for practice
 - **Reset progress** to start fresh
 

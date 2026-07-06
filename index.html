@@ -8,7 +8,8 @@
     -webkit-user-select:none; user-select:none; touch-action:manipulation; }
   #game { position:fixed; inset:0; display:block; }
   .overlay { position:fixed; inset:0; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; text-align:center; color:#fff;
+    align-items:center; justify-content:safe center; text-align:center; color:#fff;
+    overflow-y:auto; -webkit-overflow-scrolling:touch; padding:20px 12px;
     background:radial-gradient(circle at 50% 30%, #34246e 0%, #0d1030 80%); z-index:10; }
   .hidden { display:none !important; }
   h1 { font-size: clamp(38px, 9vw, 96px); margin:0 0 6px; color:#ffe14d;
@@ -48,9 +49,32 @@
   .big { font-size: clamp(30px,7vw,64px); margin:0 0 10px; color:#ffe14d; text-shadow:0 3px 0 #d98a00; }
   .parentnote { font-size:13px; color:#9fb6d8; margin-top:18px; max-width:460px; }
   select { font-family:inherit; font-size:18px; padding:8px 12px; border-radius:12px; border:none; }
+  /* On-screen keyboard for touch devices */
+  .keys { position:fixed; left:0; right:0; bottom:0; z-index:6; display:flex; flex-direction:column;
+    align-items:center; gap:5px; padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, rgba(13,16,48,.9), rgba(13,16,48,0)); }
+  .keys .krow { display:flex; gap:5px; justify-content:center; width:100%; max-width:640px; }
+  .key { flex:1 1 0; min-width:0; height:46px; border-radius:10px; border:none; padding:0;
+    background:rgba(255,255,255,.94); color:#20204a; font-family:inherit; font-weight:bold; font-size:20px;
+    box-shadow:0 3px 0 rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  .key:active { transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.35); background:#ffe14d; }
+  .key.wide { flex:4 1 0; }
+  @media (max-width:480px){
+    .topbar { height:48px; padding:0 8px; }
+    .topbar .info { font-size:15px; line-height:1.05; }
+    .topbar .right { gap:8px; }
+    .topbar .score { font-size:15px; }
+    .topbar .hearts { font-size:17px; letter-spacing:0; white-space:nowrap; }
+    .iconbtn { width:38px; height:38px; font-size:18px; }
+    .key { height:42px; font-size:18px; box-shadow:0 2px 0 rgba(0,0,0,.35); }
+  }
 </style>
 
 <canvas id="game"></canvas>
+
+<!-- On-screen keyboard (touch devices) -->
+<div id="keys" class="keys hidden"></div>
 
 <!-- Top HUD (during play) -->
 <div id="hud" class="topbar hidden">
@@ -104,6 +128,10 @@
     <label>Read words &amp; sentences aloud</label>
     <div class="row" style="justify-content:flex-start">
       <button class="btn small" id="readToggle">🗣️ On</button>
+    </div>
+    <label>On‑screen keyboard (for tablets/phones)</label>
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn small" id="keysToggle">⌨️ On</button>
     </div>
     <label>Voice</label>
     <div class="row" style="justify-content:flex-start">
@@ -222,9 +250,10 @@
   // ---------- Settings ----------
   const settings = loadSettings();
   function loadSettings(){
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
     try{ const s = JSON.parse(localStorage.getItem('starTyper.settings'));
-      if(s) return Object.assign({speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9}, s); }catch(e){}
-    return { speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9 };
+      if(s) return Object.assign({speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9, touchKeys:isTouch}, s); }catch(e){}
+    return { speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9, touchKeys:isTouch };
   }
   function saveSettings(){ try{ localStorage.setItem('starTyper.settings', JSON.stringify(settings)); }catch(e){} }
 
@@ -363,7 +392,8 @@
     if(WORLDS[w].kind==='num'){ setToast(numTier(1).label, true); }
     recordBest();
     playing=true;
-    showScreen(null);            // hide overlays, show HUD
+    buildKeys();                 // build the touch keyboard for this world
+    showScreen(null);            // hide overlays, show HUD (+ keyboard if enabled)
     updateHud();
     lastT=performance.now();
     const ac=audio(); if(ac && ac.state==='suspended') ac.resume();
@@ -626,12 +656,33 @@
     if(e.key.length===1){ e.preventDefault(); handleKey(e.key); }
   }, true);
 
+  // ---------- On-screen keyboard (touch) ----------
+  function buildKeys(){
+    const el=document.getElementById('keys'); el.innerHTML='';
+    const w=WORLDS[world]; let rows;
+    if(w.kind==='num'){ rows=[chars('12345'), chars('67890')]; }
+    else if(w.id==='sym'){ rows=[w.pool]; }
+    else { rows=[chars('qwertyuiop'), chars('asdfghjkl'), chars('zxcvbnm')];
+      if(w.kind==='word') rows.push(['space']); }
+    for(const r of rows){ const rd=document.createElement('div'); rd.className='krow';
+      for(const k of r){ const btn=document.createElement('button');
+        btn.className='key'+(k==='space'?' wide':''); btn.textContent=(k==='space'?'space':k);
+        const key=(k==='space'?' ':k);
+        btn.addEventListener('pointerdown', ev=>{ ev.preventDefault(); unlockAudio(); handleKey(key); });
+        rd.appendChild(btn); }
+      el.appendChild(rd); }
+  }
+  function updateKeysVisible(){
+    document.getElementById('keys').classList.toggle('hidden', !(playing && settings.touchKeys));
+  }
+
   // ---------- Screens ----------
   const OVERLAYS=['menu','over','pause','parent'];
   function showScreen(id){
     playing = (id===null);
     document.getElementById('hud').classList.toggle('hidden', !(id===null || id==='pause'));
     for(const s of OVERLAYS) document.getElementById(s).classList.toggle('hidden', s!==id);
+    updateKeysVisible();
   }
 
   function buildMenu(){
@@ -659,6 +710,7 @@
     document.getElementById('speedVal').textContent=speedLabel(settings.speed);
     document.getElementById('soundToggle').textContent=settings.sound?'🔊 On':'🔇 Off';
     document.getElementById('readToggle').textContent=settings.speak?'🗣️ On':'🔇 Off';
+    document.getElementById('keysToggle').textContent=settings.touchKeys?'⌨️ On':'⌨️ Off';
     document.getElementById('rateSlider').value=settings.voiceRate;
     document.getElementById('rateVal').textContent=rateLabel(settings.voiceRate);
     buildVoiceList();
@@ -690,6 +742,9 @@
   document.getElementById('readToggle').addEventListener('click', e=>{
     settings.speak=!settings.speak; saveSettings();
     e.target.textContent=settings.speak?'🗣️ On':'🔇 Off'; if(settings.speak) speak('hello'); });
+  document.getElementById('keysToggle').addEventListener('click', e=>{
+    settings.touchKeys=!settings.touchKeys; saveSettings();
+    e.target.textContent=settings.touchKeys?'⌨️ On':'⌨️ Off'; updateKeysVisible(); });
   function sampleSpeak(text){ const was=settings.speak; settings.speak=true; speak(text); settings.speak=was; }
   document.getElementById('voicePick').addEventListener('change', e=>{
     settings.voiceName=e.target.value||''; saveSettings(); sampleSpeak('The cat can jump!'); });
