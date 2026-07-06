@@ -101,6 +101,10 @@
     <div class="row" style="justify-content:flex-start">
       <button class="btn small" id="soundToggle">🔊 On</button>
     </div>
+    <label>Read words &amp; sentences aloud</label>
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn small" id="readToggle">🗣️ On</button>
+    </div>
     <label>Jump to a world</label>
     <div class="row" style="justify-content:flex-start">
       <select id="worldJump"></select>
@@ -116,7 +120,8 @@
       Capital letters and symbols accept the un‑shifted key (press <b>1</b> for <b>!</b>),
       so no Shift needed. In the Numbers world the challenge grows from counting to
       adding, taking away, times, and sharing — always small whole numbers, never negative.
-      Progress is saved on this computer.
+      With <b>Read aloud</b> on, each word or sentence is spoken after it's typed
+      correctly — great for building reading skills. Progress is saved on this computer.
     </div>
   </div>
   <button class="btn" id="parentBack">◀ Back</button>
@@ -140,18 +145,37 @@
   window.addEventListener('resize', resize); resize();
 
   // ---------- Sound (WebAudio, no files) ----------
-  let AC=null;
-  function audio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+  let AC=null, MASTER=null;
+  function audio(){
+    if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)();
+      MASTER = AC.createGain(); MASTER.gain.value = 0.85; MASTER.connect(AC.destination);
+    }catch(e){} }
+    return AC;
+  }
+  // Browsers start audio suspended until a user gesture — unlock on the first tap/key.
+  function unlockAudio(){ const ac=audio(); if(ac && ac.state==='suspended') ac.resume(); }
+  window.addEventListener('pointerdown', unlockAudio);
+  window.addEventListener('keydown', unlockAudio);
   function tone(freq, dur, type, vol, slideTo){
-    if(!settings.sound) return; const ac = audio(); if(!ac) return;
+    if(!settings.sound) return; const ac = audio(); if(!ac || !MASTER) return;
+    if(ac.state==='suspended') ac.resume();
     const t = ac.currentTime;
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = type||'square'; o.frequency.setValueAtTime(freq, t);
     if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t+dur);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol||0.2, t+0.01);
+    g.gain.exponentialRampToValueAtTime(vol||0.28, t+0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-    o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur+0.02);
+    o.connect(g).connect(MASTER); o.start(t); o.stop(t+dur+0.02);
+  }
+  // ---------- Speech (Web Speech API, no files) ----------
+  function speak(text){
+    if(!settings.speak) return;
+    try{ const synth=window.speechSynthesis; if(!synth) return;
+      synth.cancel();
+      const u=new SpeechSynthesisUtterance(text);
+      u.rate=0.85; u.pitch=1.15; u.volume=1; synth.speak(u);
+    }catch(e){}
   }
   const sfx = {
     zap(){ tone(880, 0.12, 'square', 0.18, 220); tone(1320,0.08,'sine',0.12); },
@@ -168,8 +192,8 @@
   const settings = loadSettings();
   function loadSettings(){
     try{ const s = JSON.parse(localStorage.getItem('starTyper.settings'));
-      if(s) return Object.assign({speed:1, sound:true}, s); }catch(e){}
-    return { speed:1, sound:true };
+      if(s) return Object.assign({speed:1, sound:true, speak:true}, s); }catch(e){}
+    return { speed:1, sound:true, speak:true };
   }
   function saveSettings(){ try{ localStorage.setItem('starTyper.settings', JSON.stringify(settings)); }catch(e){} }
 
@@ -273,7 +297,7 @@
   // ---------- Game state ----------
   let playing=false;              // true only during active gameplay
   let world=0, level=1, params=null;
-  let targets=[], particles=[], beams=[], stars=[], guardian=null;
+  let targets=[], particles=[], beams=[], floats=[], stars=[], guardian=null;
   let locked=null, destroyedInLevel=0, score=0, hearts=3, spawnTimer=0, shake=0;
   let toast=null;                 // {text, life, big}
   let lastT=0;
@@ -284,7 +308,7 @@
 
   function startWorld(w){
     world=w; level=1; params=difficulty(w,level);
-    targets=[]; particles=[]; beams=[]; locked=null;
+    targets=[]; particles=[]; beams=[]; floats=[]; locked=null;
     destroyedInLevel=0; score=0; hearts=3; spawnTimer=0.4; shake=0;
     guardian={ face:'😀', pulse:0 };
     if(WORLDS[w].kind==='num'){ setToast(numTier(1).label, true); }
@@ -348,6 +372,8 @@
   function destroyTarget(t){
     const i=targets.indexOf(t); if(i>=0) targets.splice(i,1);
     burst(t.x,t.y,t.color,18); sfx.pop();
+    if(t.kind==='word') speak(t.display);                       // read the word/sentence aloud
+    if(t.kind==='math') addFloat(t.x, t.y, t.display+' = '+t.answer, t.color); // show the solved equation
     score++; destroyedInLevel++;
     if(score%5===0) sfx.good();
     if(destroyedInLevel>=TARGETS_PER_LEVEL){ levelUp(); }
@@ -378,6 +404,7 @@
 
   function gameOver(){
     playing=false; sfx.over();
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
     document.getElementById('overTitle').textContent='Good try! 💪';
     document.getElementById('overMsg').textContent =
       'You reached Level '+level+' in '+WORLDS[world].title+' and zapped '+score+'! ⭐';
@@ -387,6 +414,10 @@
   function burst(x,y,color,n){
     for(let i=0;i<n;i++){ const a=Math.random()*6.28, s=Math.random()*140+40;
       particles.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:0.6+Math.random()*0.4, max:1, color, r:Math.random()*4+2 }); }
+  }
+  function addFloat(x,y,text,color){
+    floats.push({ x:Math.max(120,Math.min(W-120,x)),
+      y:Math.max(H*0.42, Math.min(H-90, y)), text, color, life:1.7, max:1.7 });
   }
 
   // ---------- Loop ----------
@@ -411,6 +442,7 @@
       p.life-=dt; if(p.life<=0){ particles.splice(i,1); continue; }
       p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.94; p.vy*=0.94; }
     for(let i=beams.length-1;i>=0;i--){ beams[i].life-=dt; if(beams[i].life<=0) beams.splice(i,1); }
+    for(let i=floats.length-1;i>=0;i--){ const f=floats[i]; f.life-=dt; f.y-=dt*34; if(f.life<=0) floats.splice(i,1); }
     if(guardian) guardian.pulse=Math.max(0,guardian.pulse-dt*3);
     if(shake>0) shake=Math.max(0,shake-dt*40);
     if(toast){ toast.life-=dt; if(toast.life<=0) toast=null; }
@@ -437,6 +469,13 @@
     drawGuardian();
     for(const p of particles){ ctx.globalAlpha=Math.max(0,p.life/p.max);
       ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }
+    ctx.globalAlpha=1;
+    // solved-equation pop-ups
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font="bold 34px 'Comic Sans MS',sans-serif";
+    for(const f of floats){ ctx.globalAlpha=Math.min(1,f.life/f.max*1.4);
+      ctx.lineWidth=6; ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.strokeText(f.text, f.x, f.y);
+      ctx.fillStyle='#fff'; ctx.fillText(f.text, f.x, f.y); }
     ctx.globalAlpha=1;
     ctx.restore();
 
@@ -474,11 +513,18 @@
       for(let i=0;i<full.length;i++){ const ch=full[i], cw=ctx.measureText(ch).width;
         ctx.fillStyle = i<t.typed ? 'rgba(255,255,255,0.55)' : '#20204a';
         ctx.fillText(ch, sx+cw/2, 1); sx+=cw; }
-    } else { // math: "2 + 3 = _"
+    } else { // math: show just the problem; typed digits build in green (no equals sign)
       ctx.font='bold '+Math.min(26,t.r*0.8)+"px 'Comic Sans MS',sans-serif";
       const typedStr = t.answer.slice(0,t.typed);
-      const line = t.display + ' = ' + (typedStr || '?');
-      ctx.fillStyle='#20204a'; ctx.fillText(line, 0, 1);
+      if(typedStr){
+        const gap='  ', total=ctx.measureText(t.display+gap+typedStr).width, lw=ctx.measureText(t.display+gap).width;
+        ctx.textAlign='left';
+        ctx.fillStyle='#20204a'; ctx.fillText(t.display+gap, -total/2, 1);
+        ctx.fillStyle='#0a7d2c'; ctx.fillText(typedStr, -total/2+lw, 1);
+        ctx.textAlign='center';
+      } else {
+        ctx.fillStyle='#20204a'; ctx.fillText(t.display, 0, 1);
+      }
     }
     ctx.restore();
   }
@@ -549,6 +595,7 @@
     document.getElementById('speedSlider').value=settings.speed;
     document.getElementById('speedVal').textContent=speedLabel(settings.speed);
     document.getElementById('soundToggle').textContent=settings.sound?'🔊 On':'🔇 Off';
+    document.getElementById('readToggle').textContent=settings.speak?'🗣️ On':'🔇 Off';
   }
   function speedLabel(v){ return v<0.8?'Slow 🐢': v>1.2?'Fast 🐇':'Normal'; }
 
@@ -560,7 +607,10 @@
     document.getElementById('speedVal').textContent=speedLabel(settings.speed); });
   document.getElementById('soundToggle').addEventListener('click', e=>{
     settings.sound=!settings.sound; saveSettings();
-    e.target.textContent=settings.sound?'🔊 On':'🔇 Off'; if(settings.sound) sfx.good(); });
+    e.target.textContent=settings.sound?'🔊 On':'🔇 Off'; if(settings.sound){ unlockAudio(); sfx.good(); } });
+  document.getElementById('readToggle').addEventListener('click', e=>{
+    settings.speak=!settings.speak; saveSettings();
+    e.target.textContent=settings.speak?'🗣️ On':'🔇 Off'; if(settings.speak) speak('hello'); });
   document.getElementById('jumpBtn').addEventListener('click', ()=>{
     startWorld(parseInt(document.getElementById('worldJump').value,10)||0); });
   document.getElementById('unlockAll').addEventListener('click', ()=>{
@@ -571,7 +621,7 @@
   document.getElementById('pauseBtn').addEventListener('click', doPause);
   document.getElementById('resumeBtn').addEventListener('click', doResume);
   document.getElementById('quitBtn').addEventListener('click', ()=>{ buildMenu(); showScreen('menu'); });
-  function doPause(){ if(!playing) return; showScreen('pause'); }
+  function doPause(){ if(!playing) return; try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){} showScreen('pause'); }
   function doResume(){ if(document.getElementById('pause').classList.contains('hidden')) return;
     showScreen(null); lastT=performance.now();
     if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
@@ -586,6 +636,7 @@
     get targets(){return targets.length;}, get playing(){return playing;},
     get answers(){return targets.map(t=>t.answer);},
     get displays(){return targets.map(t=>t.display);},
+    get floats(){return floats.map(f=>f.text);},
     setLevel(n){ level=n; params=difficulty(world,level); } };
 })();
 </script>

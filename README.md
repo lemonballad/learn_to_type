@@ -40,16 +40,25 @@ always **small whole numbers, never negative**:
 | 3–6 | ➕ Adding | `6 + 3 = ?` |
 | 7–10 | ➖ Taking away | `8 − 3 = ?` |
 | 11–14 | ✖️ Times | `4 × 2 = ?` |
-| 15+ | ➗ Sharing (division) | `6 ÷ 2 = ?` |
+| 15+ | ➗ Sharing (division) | `6 ÷ 2` |
 
-Your child types the **answer**; the bubble fills in as they go.
+The bubble shows just the problem (e.g. `6 ÷ 2`). Your child types the **answer**;
+the moment it's right, the **full solved equation pops up** on screen (`6 ÷ 2 = 3`).
+
+## 🗣️ Read aloud
+
+Turn **Read aloud** on in the Grown-ups Corner and every **word or sentence** is
+spoken out loud the instant it's typed correctly — a nice way to connect the letters
+to the sound of the word. It uses your computer's built-in voice (no files, works
+offline). Toggle it off any time.
 
 ## Grown‑ups Corner ⚙️
 
 Tap the **⚙️ Grown‑ups** button on the title screen to:
 
 - Adjust **game speed** (Slow 🐢 / Normal / Fast 🐇)
-- Turn **sound** on/off
+- Turn **sound effects** on/off
+- Turn **Read aloud** (spoken words & sentences) on/off
 - **Jump to any world** or **unlock everything** for practice
 - **Reset progress** to start fresh
 
