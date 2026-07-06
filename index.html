@@ -105,6 +105,13 @@
     <div class="row" style="justify-content:flex-start">
       <button class="btn small" id="readToggle">🗣️ On</button>
     </div>
+    <label>Voice</label>
+    <div class="row" style="justify-content:flex-start">
+      <select id="voicePick"></select>
+      <button class="btn small blue" id="voiceTest">▶ Test</button>
+    </div>
+    <label>Voice speed: <span id="rateVal">Normal</span></label>
+    <input type="range" id="rateSlider" min="0.6" max="1.1" step="0.05" value="0.9">
     <label>Jump to a world</label>
     <div class="row" style="justify-content:flex-start">
       <select id="worldJump"></select>
@@ -169,12 +176,36 @@
     o.connect(g).connect(MASTER); o.start(t); o.stop(t+dur+0.02);
   }
   // ---------- Speech (Web Speech API, no files) ----------
+  let VOICES=[];
+  function refreshVoices(){
+    try{ VOICES=(window.speechSynthesis&&window.speechSynthesis.getVoices())||[]; }catch(e){ VOICES=[]; }
+    return VOICES;
+  }
+  if(window.speechSynthesis){ refreshVoices();
+    try{ window.speechSynthesis.onvoiceschanged=()=>{ refreshVoices(); if(typeof buildVoiceList==='function') buildVoiceList(); }; }catch(e){} }
+  // English voices only, ranked so the most natural one is first
+  function englishVoices(){ return refreshVoices().filter(v=>/^en(-|_|$)/i.test(v.lang||'')); }
+  function voiceScore(v){
+    const n=(v.name||'')+' '+(v.voiceURI||''); let s=0;
+    if(/natural|neural|premium|enhanced/i.test(n)) s+=100;
+    if(/google/i.test(n)) s+=60;                      // Chrome's cloud voice, quite natural
+    if(/aria|jenny|guy|ava|samantha|zira|libby|sonia|emma|michelle/i.test(n)) s+=40;
+    if(!v.localService) s+=15;                        // network voices tend to be higher quality
+    if(/en-US/i.test(v.lang||'')) s+=5;
+    return s;
+  }
+  function chosenVoice(){
+    const list=englishVoices(); if(!list.length) return null;
+    if(settings.voiceName){ const m=list.find(v=>v.name===settings.voiceName); if(m) return m; }
+    return list.slice().sort((a,b)=>voiceScore(b)-voiceScore(a))[0];
+  }
   function speak(text){
     if(!settings.speak) return;
     try{ const synth=window.speechSynthesis; if(!synth) return;
       synth.cancel();
       const u=new SpeechSynthesisUtterance(text);
-      u.rate=0.85; u.pitch=1.15; u.volume=1; synth.speak(u);
+      const v=chosenVoice(); if(v){ u.voice=v; u.lang=v.lang; }
+      u.rate=settings.voiceRate||0.9; u.pitch=1.1; u.volume=1; synth.speak(u);
     }catch(e){}
   }
   const sfx = {
@@ -192,8 +223,8 @@
   const settings = loadSettings();
   function loadSettings(){
     try{ const s = JSON.parse(localStorage.getItem('starTyper.settings'));
-      if(s) return Object.assign({speed:1, sound:true, speak:true}, s); }catch(e){}
-    return { speed:1, sound:true, speak:true };
+      if(s) return Object.assign({speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9}, s); }catch(e){}
+    return { speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9 };
   }
   function saveSettings(){ try{ localStorage.setItem('starTyper.settings', JSON.stringify(settings)); }catch(e){} }
 
@@ -628,6 +659,22 @@
     document.getElementById('speedVal').textContent=speedLabel(settings.speed);
     document.getElementById('soundToggle').textContent=settings.sound?'🔊 On':'🔇 Off';
     document.getElementById('readToggle').textContent=settings.speak?'🗣️ On':'🔇 Off';
+    document.getElementById('rateSlider').value=settings.voiceRate;
+    document.getElementById('rateVal').textContent=rateLabel(settings.voiceRate);
+    buildVoiceList();
+  }
+  function rateLabel(v){ return v<0.75?'Slow 🐢': v>0.98?'Faster 🐇':'Normal'; }
+  function buildVoiceList(){
+    const sel=document.getElementById('voicePick'); if(!sel) return;
+    const list=englishVoices().slice().sort((a,b)=>voiceScore(b)-voiceScore(a));
+    sel.innerHTML='';
+    if(!list.length){ const o=document.createElement('option'); o.textContent='(built‑in voice)'; o.value=''; sel.appendChild(o); return; }
+    const best=chosenVoice();
+    for(const v of list){ const o=document.createElement('option'); o.value=v.name;
+      const nice=/natural|neural|premium|enhanced|google/i.test(v.name)?' ⭐':'';
+      o.textContent=v.name+nice; if(v===best && !settings.voiceName) o.textContent+=' (auto)';
+      if(v.name===settings.voiceName) o.selected=true; sel.appendChild(o); }
+    if(!settings.voiceName && best) sel.value=best.name;
   }
   function speedLabel(v){ return v<0.8?'Slow 🐢': v>1.2?'Fast 🐇':'Normal'; }
 
@@ -643,6 +690,14 @@
   document.getElementById('readToggle').addEventListener('click', e=>{
     settings.speak=!settings.speak; saveSettings();
     e.target.textContent=settings.speak?'🗣️ On':'🔇 Off'; if(settings.speak) speak('hello'); });
+  function sampleSpeak(text){ const was=settings.speak; settings.speak=true; speak(text); settings.speak=was; }
+  document.getElementById('voicePick').addEventListener('change', e=>{
+    settings.voiceName=e.target.value||''; saveSettings(); sampleSpeak('The cat can jump!'); });
+  document.getElementById('voiceTest').addEventListener('click', ()=>{
+    sampleSpeak('The cat can jump. Two plus three is five!'); });
+  document.getElementById('rateSlider').addEventListener('input', e=>{
+    settings.voiceRate=parseFloat(e.target.value)||0.9; saveSettings();
+    document.getElementById('rateVal').textContent=rateLabel(settings.voiceRate); });
   document.getElementById('jumpBtn').addEventListener('click', ()=>{
     startWorld(parseInt(document.getElementById('worldJump').value,10)||0); });
   document.getElementById('unlockAll').addEventListener('click', ()=>{

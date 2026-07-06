@@ -54,8 +54,26 @@ problem (e.g. `6 ÷ 2`). Your child types the **answer**; the moment it's right,
 
 Turn **Read aloud** on in the Grown-ups Corner and every **word or sentence** is
 spoken out loud the instant it's typed correctly — a nice way to connect the letters
-to the sound of the word. It uses your computer's built-in voice (no files, works
+to the sound of the word. It uses your computer's built-in voices (no files, works
 offline). Toggle it off any time.
+
+### Getting a more natural voice 🎙️
+
+The Grown-ups Corner has a **Voice picker** and a **▶ Test** button. The game
+automatically selects the most natural voice it can find (marked ⭐ / "auto"), but you
+can choose any installed voice and set the speaking speed. The naturalness depends on
+which voices your computer has:
+
+- **Chrome / Edge:** usually includes **"Google US English"** and Microsoft
+  **"…Online (Natural)"** neural voices — pick one of those for the most human sound.
+- **Windows:** install extra natural voices free via **Settings → Time & Language →
+  Speech → Manage voices → Add voices** (look for *Natural* voices like Aria or Jenny).
+  They then appear in the picker after you restart the browser.
+- **macOS:** **System Settings → Accessibility → Spoken Content → System Voice → Manage
+  Voices**, and download an **Enhanced/Premium** English voice (e.g. Ava, Samantha).
+- **Most natural of all** would be a cloud voice service (ElevenLabs, Google, Azure),
+  but that needs an internet connection, an API key, and has a cost — so it's left out
+  of this offline, kid-friendly build. It's noted on the roadmap as an optional add-on.
 
 ## Grown‑ups Corner ⚙️
 
