@@ -52,13 +52,15 @@
   /* On-screen keyboard for touch devices */
   .keys { position:fixed; left:0; right:0; bottom:0; z-index:6; display:flex; flex-direction:column;
     align-items:center; gap:5px; padding:6px 4px calc(6px + env(safe-area-inset-bottom));
-    background:linear-gradient(to top, rgba(13,16,48,.9), rgba(13,16,48,0)); }
+    background:linear-gradient(to top, rgba(13,16,48,.35), rgba(13,16,48,0)); pointer-events:none; }
+  .keys .krow, .keypad { pointer-events:none; }
   .keys .krow { display:flex; gap:5px; justify-content:center; width:100%; max-width:640px; }
-  .key { flex:1 1 0; min-width:0; height:46px; border-radius:10px; border:none; padding:0;
-    background:rgba(255,255,255,.94); color:#20204a; font-family:inherit; font-weight:bold; font-size:20px;
-    box-shadow:0 3px 0 rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center;
+  .key { pointer-events:auto; flex:1 1 0; min-width:0; height:46px; border-radius:10px; border:none; padding:0;
+    background:rgba(255,255,255,.5); color:#182042; font-family:inherit; font-weight:bold; font-size:20px;
+    box-shadow:0 3px 0 rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center;
+    backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
     touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
-  .key:active { transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.35); background:#ffe14d; }
+  .key:active { transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.25); background:#ffe14d; }
   .key.wide { flex:4 1 0; }
   .keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; width:100%; max-width:240px; margin:0 auto; }
   .keypad .key { height:54px; font-size:24px; }
@@ -83,11 +85,11 @@
   :root[data-theme="dark"] .world { background:#262a42; color:#e8ecff; box-shadow:0 6px 0 rgba(0,0,0,.5); }
   :root[data-theme="dark"] .world .wdesc { color:#9aa3c4; }
   :root[data-theme="dark"] .panel { background:rgba(255,255,255,.06); }
-  :root[data-theme="dark"] .key { background:#333757; color:#eef1ff; }
-  :root[data-theme="dark"] .key:active { background:#4a4f78; }
+  :root[data-theme="dark"] .key { background:rgba(70,76,120,.42); color:#eef1ff; }
+  :root[data-theme="dark"] .key:active { background:#ffe14d; color:#3a2a00; }
   :root[data-theme="dark"] select { background:#333757; color:#eef1ff; }
   :root[data-theme="dark"] .keys {
-    background:linear-gradient(to top, rgba(4,5,12,.92), rgba(4,5,12,0)); }
+    background:linear-gradient(to top, rgba(4,5,12,.4), rgba(4,5,12,0)); }
 </style>
 
 <canvas id="game"></canvas>
