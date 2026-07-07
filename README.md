@@ -97,6 +97,8 @@ Tap the **⚙️ Grown‑ups** button on the title screen to:
 - Turn **sound effects** on/off
 - Turn **Read aloud** (spoken words & sentences) on/off and pick the **voice**
 - Turn the **on‑screen keyboard** on/off (for tablets & phones)
+- Turn on **Hints** 💡 — the on‑screen keyboard flashes the exact key to press next
+  for the closest target, a perfect training wheel for a brand‑new typer
 - **Jump to any world** or **unlock everything** for practice
 - **Reset progress** to start fresh
 

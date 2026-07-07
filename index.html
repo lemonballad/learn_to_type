@@ -60,6 +60,10 @@
     touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   .key:active { transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.35); background:#ffe14d; }
   .key.wide { flex:4 1 0; }
+  .key.hint { background:#ffe14d; color:#3a2a00; animation:hintpulse .75s ease-in-out infinite; }
+  @keyframes hintpulse {
+    0%,100% { box-shadow:0 0 0 3px #ffb300, 0 3px 0 rgba(0,0,0,.35); }
+    50%     { box-shadow:0 0 0 8px #ffd23f, 0 3px 0 rgba(0,0,0,.35); } }
   @media (max-width:480px){
     .topbar { height:48px; padding:0 8px; }
     .topbar .info { font-size:15px; line-height:1.05; }
@@ -148,6 +152,10 @@
     <label>On‑screen keyboard (for tablets/phones)</label>
     <div class="row" style="justify-content:flex-start">
       <button class="btn small" id="keysToggle">⌨️ On</button>
+    </div>
+    <label>Hints (flash the key to press next)</label>
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn small" id="hintToggle">💡 Off</button>
     </div>
     <label>Voice</label>
     <div class="row" style="justify-content:flex-start">
@@ -268,7 +276,7 @@
   function loadSettings(){
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
     let prefersDark=false; try{ prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches; }catch(e){}
-    const defaults = { speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9, touchKeys:isTouch, dark:prefersDark };
+    const defaults = { speed:1, sound:true, speak:true, voiceName:'', voiceRate:0.9, touchKeys:isTouch, dark:prefersDark, hints:false };
     try{ const s = JSON.parse(localStorage.getItem('starTyper.settings'));
       if(s) return Object.assign(defaults, s); }catch(e){}
     return defaults;
@@ -602,6 +610,7 @@
     ctx.restore();
 
     if(toast) drawToast();
+    updateHints();
   }
 
   function drawToast(){
@@ -687,7 +696,7 @@
 
   // ---------- On-screen keyboard (touch) ----------
   function buildKeys(){
-    const el=document.getElementById('keys'); el.innerHTML='';
+    const el=document.getElementById('keys'); el.innerHTML=''; hintBtn=null;
     const w=WORLDS[world]; let rows;
     if(w.kind==='num'){ rows=[chars('12345'), chars('67890')]; }
     else if(w.id==='sym'){ rows=[w.pool]; }
@@ -696,13 +705,28 @@
     for(const r of rows){ const rd=document.createElement('div'); rd.className='krow';
       for(const k of r){ const btn=document.createElement('button');
         btn.className='key'+(k==='space'?' wide':''); btn.textContent=(k==='space'?'space':k);
-        const key=(k==='space'?' ':k);
+        const key=(k==='space'?' ':k); btn.dataset.key=key;
         btn.addEventListener('pointerdown', ev=>{ ev.preventDefault(); unlockAudio(); handleKey(key); });
         rd.appendChild(btn); }
       el.appendChild(rd); }
   }
   function updateKeysVisible(){
     document.getElementById('keys').classList.toggle('hidden', !(playing && settings.touchKeys));
+  }
+  // Hints: flash the on-screen key the child should press next
+  let hintBtn=null;
+  function clearHint(){ if(hintBtn){ hintBtn.classList.remove('hint'); hintBtn=null; } }
+  function updateHints(){
+    const keysEl=document.getElementById('keys');
+    if(!settings.hints || !playing || keysEl.classList.contains('hidden')){ clearHint(); return; }
+    // target you're on (locked), else the closest one to the rocket
+    let tgt=locked;
+    if(!tgt){ let bd=Infinity; for(const t of targets){ const d=(t.x-CX)**2+(t.y-CY)**2; if(d<bd){ bd=d; tgt=t; } } }
+    if(!tgt){ clearHint(); return; }
+    const need=tgt.answer[tgt.typed];
+    let match=null;
+    for(const btn of keysEl.querySelectorAll('.key')){ if(keyMatches(need, btn.dataset.key)){ match=btn; break; } }
+    if(match!==hintBtn){ clearHint(); if(match){ match.classList.add('hint'); hintBtn=match; } }
   }
 
   // ---------- Screens ----------
@@ -741,6 +765,7 @@
     document.getElementById('soundToggle').textContent=settings.sound?'🔊 On':'🔇 Off';
     document.getElementById('readToggle').textContent=settings.speak?'🗣️ On':'🔇 Off';
     document.getElementById('keysToggle').textContent=settings.touchKeys?'⌨️ On':'⌨️ Off';
+    document.getElementById('hintToggle').textContent=settings.hints?'💡 On':'💡 Off';
     document.getElementById('rateSlider').value=settings.voiceRate;
     document.getElementById('rateVal').textContent=rateLabel(settings.voiceRate);
     buildVoiceList();
@@ -778,6 +803,12 @@
   document.getElementById('darkToggle').addEventListener('click', e=>{
     settings.dark=!settings.dark; saveSettings(); applyTheme();
     e.target.textContent=settings.dark?'🌙 On':'☀️ Off'; });
+  document.getElementById('hintToggle').addEventListener('click', e=>{
+    settings.hints=!settings.hints;
+    if(settings.hints) settings.touchKeys=true;   // hints appear on the on-screen keyboard
+    saveSettings(); updateKeysVisible();
+    e.target.textContent=settings.hints?'💡 On':'💡 Off';
+    document.getElementById('keysToggle').textContent=settings.touchKeys?'⌨️ On':'⌨️ Off'; });
   function sampleSpeak(text){ const was=settings.speak; settings.speak=true; speak(text); settings.speak=was; }
   document.getElementById('voicePick').addEventListener('change', e=>{
     settings.voiceName=e.target.value||''; saveSettings(); sampleSpeak('The cat can jump!'); });
@@ -813,6 +844,9 @@
     get displays(){return targets.map(t=>t.display);},
     get floats(){return floats.map(f=>f.text);},
     get locked(){return locked?{display:locked.display,typed:locked.typed}:null;},
+    get hint(){return hintBtn?hintBtn.dataset.key:null;},
+    get center(){return {x:CX,y:CY};},
+    get dbg(){return targets.map(t=>({need:t.answer[t.typed], x:t.x, y:t.y}));},
     get typedStates(){return targets.map(t=>({d:t.display,typed:t.typed}));},
     setLevel(n){ level=n; params=difficulty(world,level); } };
 })();
