@@ -60,6 +60,9 @@
     touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   .key:active { transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.35); background:#ffe14d; }
   .key.wide { flex:4 1 0; }
+  .keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; width:100%; max-width:240px; margin:0 auto; }
+  .keypad .key { height:54px; font-size:24px; }
+  .keypad .key.zero { grid-column:2; }
   .key.hint { background:#ffe14d; color:#3a2a00; animation:hintpulse .75s ease-in-out infinite; }
   @keyframes hintpulse {
     0%,100% { box-shadow:0 0 0 3px #ffb300, 0 3px 0 rgba(0,0,0,.35); }
@@ -697,20 +700,26 @@
   // ---------- On-screen keyboard (touch) ----------
   function buildKeys(){
     const el=document.getElementById('keys'); el.innerHTML=''; hintBtn=null;
-    const w=WORLDS[world]; let rows;
-    const isUpper = w.id==='upper';
-    if(w.kind==='num'){ rows=[chars('12345'), chars('67890')]; }
-    else if(w.id==='sym'){ rows=[w.pool]; }
+    const w=WORLDS[world]; const isUpper = w.id==='upper';
+    function mkKey(k){ const btn=document.createElement('button');
+      btn.className='key'+(k==='space'?' wide':'');
+      // BIG Letters world shows UPPERCASE labels but still sends the un-shifted key
+      btn.textContent=(k==='space'?'space':(isUpper?k.toUpperCase():k));
+      const key=(k==='space'?' ':k); btn.dataset.key=key;
+      btn.addEventListener('pointerdown', ev=>{ ev.preventDefault(); unlockAudio(); handleKey(key); });
+      return btn; }
+    if(w.kind==='num'){                       // calculator-style number pad: 789 / 456 / 123 / 0
+      const pad=document.createElement('div'); pad.className='keypad';
+      for(const k of ['7','8','9','4','5','6','1','2','3','0']){
+        const btn=mkKey(k); if(k==='0') btn.classList.add('zero'); pad.appendChild(btn); }
+      el.appendChild(pad); return;
+    }
+    let rows;
+    if(w.id==='sym'){ rows=[w.pool]; }
     else { rows=[chars('qwertyuiop'), chars('asdfghjkl'), chars('zxcvbnm')];
       if(w.kind==='word') rows.push(['space']); }
     for(const r of rows){ const rd=document.createElement('div'); rd.className='krow';
-      for(const k of r){ const btn=document.createElement('button');
-        btn.className='key'+(k==='space'?' wide':'');
-        // BIG Letters world shows UPPERCASE labels but still sends the un-shifted key
-        btn.textContent=(k==='space'?'space':(isUpper?k.toUpperCase():k));
-        const key=(k==='space'?' ':k); btn.dataset.key=key;
-        btn.addEventListener('pointerdown', ev=>{ ev.preventDefault(); unlockAudio(); handleKey(key); });
-        rd.appendChild(btn); }
+      for(const k of r) rd.appendChild(mkKey(k));
       el.appendChild(rd); }
   }
   function updateKeysVisible(){
