@@ -698,13 +698,16 @@
   function buildKeys(){
     const el=document.getElementById('keys'); el.innerHTML=''; hintBtn=null;
     const w=WORLDS[world]; let rows;
+    const isUpper = w.id==='upper';
     if(w.kind==='num'){ rows=[chars('12345'), chars('67890')]; }
     else if(w.id==='sym'){ rows=[w.pool]; }
     else { rows=[chars('qwertyuiop'), chars('asdfghjkl'), chars('zxcvbnm')];
       if(w.kind==='word') rows.push(['space']); }
     for(const r of rows){ const rd=document.createElement('div'); rd.className='krow';
       for(const k of r){ const btn=document.createElement('button');
-        btn.className='key'+(k==='space'?' wide':''); btn.textContent=(k==='space'?'space':k);
+        btn.className='key'+(k==='space'?' wide':'');
+        // BIG Letters world shows UPPERCASE labels but still sends the un-shifted key
+        btn.textContent=(k==='space'?'space':(isUpper?k.toUpperCase():k));
         const key=(k==='space'?' ':k); btn.dataset.key=key;
         btn.addEventListener('pointerdown', ev=>{ ev.preventDefault(); unlockAudio(); handleKey(key); });
         rd.appendChild(btn); }
